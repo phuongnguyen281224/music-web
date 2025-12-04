@@ -53,6 +53,13 @@ export default function Room({ params }: RoomProps) {
     return () => unsubscribe();
   }, []);
 
+  // Sync when videoId changes
+  useEffect(() => {
+      if (lastSyncData.current && lastSyncData.current.videoId === videoId) {
+          handleRemoteUpdate(lastSyncData.current);
+      }
+  }, [videoId]);
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -102,6 +109,8 @@ export default function Room({ params }: RoomProps) {
       if (data.videoId && data.videoId !== videoId) {
           isRemoteUpdate.current = true;
           setVideoId(data.videoId);
+          // Don't try to sync playback yet, wait for player to load new video
+          return;
       }
 
       // 2. Sync Playback
