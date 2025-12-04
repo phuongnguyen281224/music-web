@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phòng Nghe Nhạc Chung</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Lobby Section -->
+        <div id="lobby" class="view">
+            <h1>🎵 Phòng Nghe Nhạc</h1>
+            <div class="card">
+                <h2>Tạo Phòng Mới</h2>
+                <button id="createRoomBtn">Tạo Phòng Ngay</button>
+            </div>
+            <div class="divider">HOẶC</div>
+            <div class="card">
+                <h2>Vào Phòng Có Sẵn</h2>
+                <input type="text" id="roomCodeInput" placeholder="Nhập mã phòng...">
+                <button id="joinRoomBtn">Vào Phòng</button>
+            </div>
+        </div>
+
+        <!-- Room Section -->
+        <div id="room" class="view hidden">
+            <div class="room-header">
+                <h3>Mã Phòng: <span id="displayRoomCode"></span></h3>
+                <button id="leaveRoomBtn">Rời Phòng</button>
+            </div>
+
+            <div class="player-container">
+                <!-- YouTube Player Placeholder -->
+                <div id="player"></div>
+            </div>
+
+            <div class="controls">
+                <input type="text" id="videoUrlInput" placeholder="Dán link YouTube bài hát vào đây...">
+                <button id="loadVideoBtn">Phát Bài Này</button>
+            </div>
+
+            <div class="status-log" id="statusLog">
+                <p>Chào mừng bạn vào phòng!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
