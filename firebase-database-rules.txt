@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "messages": {
+          "$messageId": {
+            ".validate": "newData.hasChildren(['sender', 'text', 'timestamp'])",
+            "sender": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500"
+            },
+            "timestamp": {
+              ".validate": "newData.val() === null || newData.isNumber()"
+            }
+          }
+        },
+        "videoId": {
+          ".validate": "newData.isString()"
+        },
+        "isPlaying": {
+          ".validate": "newData.isBoolean()"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "newData.val() === null || newData.isNumber()"
+        }
+      }
+    }
+  }
+}
