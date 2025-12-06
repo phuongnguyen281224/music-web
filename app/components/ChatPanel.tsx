@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, push, serverTimestamp } from 'firebase/database';
+import { roomService } from '@/lib/services/roomService';
+import { ref, onValue, push, serverTimestamp, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { Send, User, MessageCircle, MoreVertical, Edit2 } from 'lucide-react';
 
@@ -36,9 +37,13 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
 
   // Subscribe to messages
   useEffect(() => {
-    if (!roomId || !database) return;
+    if (!roomId) return;
 
-    const messagesRef = ref(database, `rooms/${roomId}/messages`);
+    // Use service logic but here we manually subscribe to the specific path
+    // Ideally we'd move this to a hook too, but for now we update it to use the correct path
+    // The previous implementation was `rooms/${roomId}/messages`, which matches `roomService.getMessagesRef`
+    const messagesRef = roomService.getMessagesRef(roomId);
+
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -46,9 +51,6 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
           id: key,
           ...value,
         }));
-        // Sort by timestamp just in case, though Firebase pushes are usually chronological
-        // Ideally we should sort by timestamp, but order in object is not guaranteed.
-        // Assuming push keys are time-ordered.
         setMessages(messageList);
       } else {
         setMessages([]);
@@ -72,15 +74,9 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
 
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !username || !database) return;
+    if (!newMessage.trim() || !username) return;
 
-    const messagesRef = ref(database, `rooms/${roomId}/messages`);
-    push(messagesRef, {
-      sender: username,
-      text: newMessage.trim(),
-      timestamp: serverTimestamp(),
-    });
-
+    roomService.sendMessage(roomId, username, newMessage.trim());
     setNewMessage('');
   };
 

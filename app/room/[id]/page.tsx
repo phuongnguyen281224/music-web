@@ -2,137 +2,57 @@
 
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
-import { ref, onValue, set, update, serverTimestamp, push, child, get } from "firebase/database";
-import { database } from '@/lib/firebase';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, CheckCircle, GripVertical } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
+import { useRoom } from '@/hooks/useRoom';
 
 interface RoomProps {
   params: Promise<{ id: string }>;
 }
 
-interface RoomState {
-    videoId: string;
-    isPlaying: boolean;
-    timestamp: number; // The video time when the update happened
-    updatedAt: number; // Server timestamp of the update
-}
-
 export default function Room({ params }: RoomProps) {
-  const [roomId, setRoomId] = useState<string>('');
-  const [isHost, setIsHost] = useState<boolean>(false);
-  const [status, setStatus] = useState<string>('Đang kết nối Firebase...');
-  const [videoId, setVideoId] = useState<string>('dQw4w9WgXcQ');
+  const {
+      roomId,
+      isHost,
+      status,
+      playerState,
+      serverTimeOffset,
+      updatePlayer,
+      changeVideo,
+      isRemoteUpdate
+  } = useRoom('', params);
+
   const [inputUrl, setInputUrl] = useState('');
-  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
 
-  // Player state refs
+  // Local Player Refs
   const playerRef = useRef<any>(null);
-  const isRemoteUpdate = useRef(false);
-  const roomRef = useRef<any>(null);
-  const lastSyncData = useRef<RoomState | null>(null);
 
+  // --- Sync Logic (View Layer) ---
+
+  // Handle remote updates from the hook
   useEffect(() => {
-    const unwrapParams = async () => {
-      const resolvedParams = await params;
-      setRoomId(resolvedParams.id);
+      if (!roomId || !playerState) return;
 
-      // Check if this user is host via localStorage
-      if (typeof window !== 'undefined') {
-        const isHostStored = localStorage.getItem(`host_${resolvedParams.id}`) === 'true';
-        setIsHost(isHostStored);
-      }
-    };
-    unwrapParams();
-  }, [params]);
+      // 1. Sync Video ID (Declarative)
+      // The YouTube component handles the prop change automatically, but we might need to reset state if needed
 
-  useEffect(() => {
-    if (!database) return;
-    const offsetRef = ref(database, ".info/serverTimeOffset");
-    const unsubscribe = onValue(offsetRef, (snap) => {
-      setServerTimeOffset(snap.val() || 0);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Sync when videoId changes
-  useEffect(() => {
-      if (lastSyncData.current && lastSyncData.current.videoId === videoId) {
-          handleRemoteUpdate(lastSyncData.current);
-      }
-  }, [videoId]);
-
-  useEffect(() => {
-    if (!roomId) return;
-
-    // Validate config
-    if (!database) {
-        setStatus('Lỗi: Chưa cấu hình Firebase. Hãy kiểm tra file .env.local');
-        return;
-    }
-
-    setStatus('Đang đồng bộ dữ liệu...');
-    roomRef.current = ref(database, `rooms/${roomId}`);
-
-    // Subscribe to changes
-    const unsubscribe = onValue(roomRef.current, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            lastSyncData.current = data;
-            handleRemoteUpdate(data);
-            setStatus('Đã kết nối và đồng bộ.');
-        } else {
-            // Room doesn't exist yet
-             if (isHost) {
-                 // Initialize room if host
-                 setStatus('Đang tạo phòng mới...');
-                 set(roomRef.current, {
-                     videoId: 'dQw4w9WgXcQ',
-                     isPlaying: false,
-                     timestamp: 0,
-                     updatedAt: serverTimestamp()
-                 });
-             } else {
-                 setStatus('Phòng chưa được tạo hoặc không có dữ liệu.');
-             }
-        }
-    }, (error) => {
-        console.error("Firebase Error:", error);
-        setStatus(`Lỗi kết nối: ${error.message}`);
-    });
-
-    return () => unsubscribe();
-  }, [roomId, isHost, serverTimeOffset]); // Re-run sync if offset changes
-
-  // --- Sync Logic ---
-
-  const handleRemoteUpdate = (data: RoomState) => {
-      // 1. Update Video ID
-      if (data.videoId && data.videoId !== videoId) {
-          isRemoteUpdate.current = true;
-          setVideoId(data.videoId);
-          // Don't try to sync playback yet, wait for player to load new video
-          return;
-      }
-
-      // 2. Sync Playback
+      // 2. Sync Playback (Imperative)
       if (playerRef.current) {
           try {
-              const playerState = playerRef.current.getPlayerState();
+              const currentPlayerState = playerRef.current.getPlayerState();
 
-              // Calculate expected current time using server offset
-              let expectedTime = data.timestamp;
-              if (data.isPlaying && data.updatedAt) {
+              // Calculate expected current time
+              let expectedTime = playerState.timestamp;
+              if (playerState.isPlaying && playerState.updatedAt) {
                   const estimatedServerTime = Date.now() + serverTimeOffset;
-                  const diff = (estimatedServerTime - data.updatedAt) / 1000;
+                  const diff = (estimatedServerTime - playerState.updatedAt) / 1000;
                   if (diff > 0) {
                       expectedTime += diff;
                   }
               }
 
-              // Seek if drift is too large (> 1 sec)
-              // Also check if we just loaded the video to avoid initial jumpiness
+              // Seek if drift is too large
               const currentTime = playerRef.current.getCurrentTime();
               if (Math.abs(currentTime - expectedTime) > 1.5) {
                  isRemoteUpdate.current = true;
@@ -140,10 +60,10 @@ export default function Room({ params }: RoomProps) {
               }
 
               // Play/Pause
-              if (data.isPlaying && playerState !== 1) { // 1 = playing
+              if (playerState.isPlaying && currentPlayerState !== 1) {
                   isRemoteUpdate.current = true;
                   playerRef.current.playVideo();
-              } else if (!data.isPlaying && playerState !== 2) { // 2 = paused
+              } else if (!playerState.isPlaying && currentPlayerState !== 2) {
                   isRemoteUpdate.current = true;
                   playerRef.current.pauseVideo();
               }
@@ -152,20 +72,13 @@ export default function Room({ params }: RoomProps) {
           }
       }
 
-      // Reset remote flag after a short delay
+      // Reset remote flag
       setTimeout(() => { isRemoteUpdate.current = false; }, 500);
-  };
 
-  // --- Host Actions ---
+  }, [playerState, serverTimeOffset, roomId]); // Dependency on playerState triggers this
 
-  const updateRoomState = (updates: Partial<RoomState>) => {
-      if (!isHost || !roomRef.current) return;
 
-      update(roomRef.current, {
-          ...updates,
-          updatedAt: serverTimestamp() // Always update timestamp on change to sync time
-      });
-  };
+  // --- Event Handlers ---
 
   const onPlayerStateChange = (event: any) => {
     if (isRemoteUpdate.current) return;
@@ -174,46 +87,29 @@ export default function Room({ params }: RoomProps) {
     const currentTime = event.target.getCurrentTime();
 
     if (event.data === 1) { // Playing
-        updateRoomState({
+        updatePlayer({
             isPlaying: true,
             timestamp: currentTime
         });
     } else if (event.data === 2) { // Paused
-        updateRoomState({
+        updatePlayer({
             isPlaying: false,
             timestamp: currentTime
         });
     }
   };
 
-  const loadVideo = () => {
-    const id = extractVideoId(inputUrl);
-    if (id) {
-        if (isHost) {
-            updateRoomState({
-                videoId: id,
-                isPlaying: true, // Auto play on new video
-                timestamp: 0
-            });
-            setInputUrl('');
-        }
+  const handleLoadVideo = () => {
+    if (changeVideo(inputUrl)) {
+        setInputUrl('');
     } else {
         alert('Link không hợp lệ');
     }
   };
 
-  const extractVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
   const onPlayerReady = (event: any) => {
       playerRef.current = event.target;
-      // Immediate sync attempt when player is ready
-      if (lastSyncData.current) {
-          handleRemoteUpdate(lastSyncData.current);
-      }
+      // Trigger a sync manually if needed, or rely on the effect
   };
 
   // --- Render ---
@@ -227,7 +123,6 @@ export default function Room({ params }: RoomProps) {
     },
   };
 
-  // Custom resize handle component
   const ResizeHandle = () => (
     <PanelResizeHandle className="w-4 bg-gray-900 flex items-center justify-center cursor-col-resize group relative z-10 -ml-2 hover:ml-0 transition-all">
       <div className="w-1 h-12 bg-gray-700 group-hover:bg-blue-500 rounded-full transition-colors duration-200" />
@@ -295,7 +190,7 @@ export default function Room({ params }: RoomProps) {
                                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                                 <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
                                     <YouTube
-                                        videoId={videoId}
+                                        videoId={playerState.videoId}
                                         opts={opts}
                                         onReady={onPlayerReady}
                                         onStateChange={onPlayerStateChange}
@@ -315,11 +210,11 @@ export default function Room({ params }: RoomProps) {
                                         placeholder="Dán link YouTube tại đây..."
                                         value={inputUrl}
                                         onChange={(e) => setInputUrl(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && loadVideo()}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleLoadVideo()}
                                         className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
                                     />
                                     <button
-                                        onClick={loadVideo}
+                                        onClick={handleLoadVideo}
                                         className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 m-1 shadow-md hover:shadow-lg active:scale-95"
                                     >
                                         <Play size={16} fill="currentColor" />
