@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { roomService } from '@/lib/services/roomService';
 import { onValue } from 'firebase/database';
-import { Send, MessageCircle, Edit2 } from 'lucide-react';
+import { Send, MessageCircle, Edit2, Settings, Image as ImageIcon, Palette, Trash2, X } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -22,6 +22,21 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Customization State
+  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [userColor, setUserColor] = useState('#2563eb'); // Default blue-600
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Load settings from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const savedBg = localStorage.getItem('chat_bg_image');
+        const savedColor = localStorage.getItem('chat_user_color');
+        if (savedBg) setBgImage(savedBg);
+        if (savedColor) setUserColor(savedColor);
+    }
+  }, []);
 
   // Subscribe to messages
   useEffect(() => {
@@ -59,10 +74,123 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
     setNewMessage('');
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setBgImage(result);
+        localStorage.setItem('chat_bg_image', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setBgImage(null);
+    localStorage.removeItem('chat_bg_image');
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setUserColor(color);
+    localStorage.setItem('chat_user_color', color);
+  };
+
+  const resetColor = () => {
+    setUserColor('#2563eb');
+    localStorage.removeItem('chat_user_color');
+  };
+
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-gray-100">
-      {/* Header */}
-      <div className="h-16 px-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center shrink-0 shadow-sm z-10">
+    <div className="flex flex-col h-full relative overflow-hidden bg-gray-900">
+      {/* Background Layer */}
+      {bgImage && (
+        <>
+          <div
+            className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
+            style={{
+              backgroundImage: `url(${bgImage})`,
+              filter: 'blur(8px)',
+              transform: 'scale(1.1)', // Prevent blurred edges
+            }}
+          />
+          {/* Dark Overlay for Readability */}
+          <div className="absolute inset-0 z-0 bg-black/40" />
+        </>
+      )}
+
+      {/* Settings Modal/Panel */}
+      {showSettings && (
+        <div className="absolute top-16 right-4 z-30 w-72 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <Settings size={18} /> Cài đặt giao diện
+            </h3>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Background Settings */}
+          <div className="mb-4">
+            <label className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+              <ImageIcon size={14} /> Ảnh nền chat
+            </label>
+            <div className="flex gap-2">
+              <label className="flex-1 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs py-2 px-3 rounded-lg transition-colors text-center truncate flex items-center justify-center gap-2">
+                <span>{bgImage ? 'Thay đổi ảnh' : 'Tải ảnh lên'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </label>
+              {bgImage && (
+                <button
+                  onClick={handleRemoveImage}
+                  className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                  title="Xóa ảnh nền"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Color Settings */}
+          <div>
+            <label className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+              <Palette size={14} /> Màu tin nhắn của bạn
+            </label>
+            <div className="flex items-center gap-3 bg-gray-700/50 p-2 rounded-lg">
+              <input
+                type="color"
+                value={userColor}
+                onChange={handleColorChange}
+                className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
+              />
+              <span className="text-xs text-gray-300 font-mono flex-1">{userColor}</span>
+              {userColor !== '#2563eb' && (
+                <button
+                   onClick={resetColor}
+                   className="text-xs text-blue-400 hover:text-blue-300 underline"
+                >
+                  Mặc định
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header - Transparent if bgImage exists */}
+      <div className={`h-16 px-4 border-b flex justify-between items-center shrink-0 z-10 transition-colors ${bgImage ? 'bg-gray-900/80 border-white/10 backdrop-blur-sm' : 'bg-gray-900 border-gray-800'}`}>
         <div className="flex items-center gap-3">
             <div className="bg-blue-500/10 p-2 rounded-lg">
                 <MessageCircle size={20} className="text-blue-500" />
@@ -75,17 +203,26 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
                 </div>
             </div>
         </div>
-        <button
-          onClick={onChangeName}
-          className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
-          title="Đổi tên"
-        >
-          <Edit2 size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
+              title="Cài đặt giao diện"
+            >
+              <Settings size={18} />
+            </button>
+            <button
+              onClick={onChangeName}
+              className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+              title="Đổi tên"
+            >
+              <Edit2 size={18} />
+            </button>
+        </div>
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent z-10 relative">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
             <MessageCircle size={48} strokeWidth={1} className="mb-2" />
@@ -111,9 +248,10 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
                 <div
                     className={`max-w-[85%] px-4 py-2.5 text-sm shadow-sm ${
                         isMe
-                            ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm'
+                            ? 'text-white rounded-2xl rounded-tr-sm'
                             : 'bg-gray-800 text-gray-200 rounded-2xl rounded-tl-sm border border-gray-700'
                     }`}
+                    style={isMe ? { backgroundColor: userColor } : undefined}
                 >
                   <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
                 </div>
@@ -125,7 +263,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-gray-900 border-t border-gray-800 shrink-0">
+      <div className={`p-4 border-t shrink-0 z-10 transition-colors ${bgImage ? 'bg-gray-900/80 border-white/10 backdrop-blur-sm' : 'bg-gray-900 border-gray-800'}`}>
         <form onSubmit={sendMessage} className="relative flex gap-2">
           <input
             type="text"
@@ -138,7 +276,8 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
           <button
             type="submit"
             disabled={!newMessage.trim() || !username}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg disabled:opacity-0 disabled:pointer-events-none transition-all duration-200"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white p-1.5 rounded-lg disabled:opacity-0 disabled:pointer-events-none transition-all duration-200"
+            style={{ backgroundColor: userColor }}
           >
             <Send size={16} />
           </button>
