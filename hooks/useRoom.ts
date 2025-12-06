@@ -24,7 +24,8 @@ const DEFAULT_PLAYER_STATE: PlayerState = {
     updatedAt: 0
 };
 
-export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | string) {
+// paramsId can be string, Promise<{id}>, or just {id} object depending on Next.js version quirks
+export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | string | { id: string } | any) {
     const [id, setId] = useState<string>('');
     const [isHost, setIsHost] = useState<boolean>(false);
     const [status, setStatus] = useState<string>('Đang kết nối...');
@@ -38,21 +39,28 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         const init = async () => {
             let finalId = roomId;
             if (!finalId && paramsId) {
-                if (paramsId instanceof Promise) {
+                if (typeof paramsId === 'string') {
+                    finalId = paramsId;
+                } else if (paramsId instanceof Promise) {
                      const resolved = await paramsId;
                      finalId = resolved.id;
+                } else if (typeof paramsId === 'object' && paramsId !== null && 'id' in paramsId) {
+                    // Handle case where params is already resolved object
+                    finalId = (paramsId as { id: string }).id;
                 } else {
-                    finalId = paramsId as string;
+                    console.warn("Unknown paramsId format:", paramsId);
                 }
             }
 
-            if (finalId) {
+            if (finalId && typeof finalId === 'string') {
                 setId(finalId);
                 // Check host status
                 if (typeof window !== 'undefined') {
                     const isHostStored = localStorage.getItem(`host_${finalId}`) === 'true';
                     setIsHost(isHostStored);
                 }
+            } else if (finalId) {
+                console.error("Failed to extract string ID from params:", finalId);
             }
         };
         init();
