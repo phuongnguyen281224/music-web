@@ -15,8 +15,8 @@ let app: FirebaseApp | undefined;
 let database: Database | undefined;
 
 try {
-    // Only initialize if we have at least an API key, otherwise it will crash
-    if (firebaseConfig.apiKey) {
+    // Only initialize if we have at least an API key or Database URL
+    if (firebaseConfig.apiKey || firebaseConfig.databaseURL) {
         app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
         database = getDatabase(app);
     } else {
