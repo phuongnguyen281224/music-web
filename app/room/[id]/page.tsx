@@ -118,33 +118,37 @@ export default function Room({ params }: RoomProps) {
 
       // 2. Sync Playback
       if (playerRef.current) {
-          const playerState = playerRef.current.getPlayerState();
+          try {
+              const playerState = playerRef.current.getPlayerState();
 
-          // Calculate expected current time using server offset
-          let expectedTime = data.timestamp;
-          if (data.isPlaying && data.updatedAt) {
-              const estimatedServerTime = Date.now() + serverTimeOffset;
-              const diff = (estimatedServerTime - data.updatedAt) / 1000;
-              if (diff > 0) {
-                  expectedTime += diff;
+              // Calculate expected current time using server offset
+              let expectedTime = data.timestamp;
+              if (data.isPlaying && data.updatedAt) {
+                  const estimatedServerTime = Date.now() + serverTimeOffset;
+                  const diff = (estimatedServerTime - data.updatedAt) / 1000;
+                  if (diff > 0) {
+                      expectedTime += diff;
+                  }
               }
-          }
 
-          // Seek if drift is too large (> 1 sec)
-          // Also check if we just loaded the video to avoid initial jumpiness
-          const currentTime = playerRef.current.getCurrentTime();
-          if (Math.abs(currentTime - expectedTime) > 1.5) {
-             isRemoteUpdate.current = true;
-             playerRef.current.seekTo(expectedTime, true);
-          }
+              // Seek if drift is too large (> 1 sec)
+              // Also check if we just loaded the video to avoid initial jumpiness
+              const currentTime = playerRef.current.getCurrentTime();
+              if (Math.abs(currentTime - expectedTime) > 1.5) {
+                 isRemoteUpdate.current = true;
+                 playerRef.current.seekTo(expectedTime, true);
+              }
 
-          // Play/Pause
-          if (data.isPlaying && playerState !== 1) { // 1 = playing
-              isRemoteUpdate.current = true;
-              playerRef.current.playVideo();
-          } else if (!data.isPlaying && playerState !== 2) { // 2 = paused
-              isRemoteUpdate.current = true;
-              playerRef.current.pauseVideo();
+              // Play/Pause
+              if (data.isPlaying && playerState !== 1) { // 1 = playing
+                  isRemoteUpdate.current = true;
+                  playerRef.current.playVideo();
+              } else if (!data.isPlaying && playerState !== 2) { // 2 = paused
+                  isRemoteUpdate.current = true;
+                  playerRef.current.pauseVideo();
+              }
+          } catch (error) {
+              console.warn("Error syncing player state:", error);
           }
       }
 
