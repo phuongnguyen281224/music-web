@@ -82,7 +82,6 @@ export default function Room({ params }: RoomProps) {
 
   const onPlayerStateChange = (event: any) => {
     if (isRemoteUpdate.current) return;
-    if (!isHost) return;
 
     const currentTime = event.target.getCurrentTime();
 
@@ -167,12 +166,10 @@ export default function Room({ params }: RoomProps) {
                                     <Info size={16} />
                                     <span>Trạng thái: {status}</span>
                                 </div>
-                                {!isHost && (
-                                    <div className="flex items-center gap-2 text-blue-400 bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">
-                                        <Info size={12} />
-                                        Đang xem cùng Host
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2 text-blue-400 bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">
+                                    <Info size={12} />
+                                    Đang đồng bộ
+                                </div>
                             </div>
 
                             {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
@@ -200,28 +197,26 @@ export default function Room({ params }: RoomProps) {
                             </div>
 
                             {/* Host Controls */}
-                            {isHost && (
-                                <div className="bg-gray-800/40 p-1 rounded-xl border border-gray-700/50 flex items-center shadow-lg backdrop-blur-sm">
-                                    <div className="pl-4 pr-3 text-gray-500">
-                                        <LinkIcon size={20} />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Dán link YouTube tại đây..."
-                                        value={inputUrl}
-                                        onChange={(e) => setInputUrl(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleLoadVideo()}
-                                        className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
-                                    />
-                                    <button
-                                        onClick={handleLoadVideo}
-                                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 m-1 shadow-md hover:shadow-lg active:scale-95"
-                                    >
-                                        <Play size={16} fill="currentColor" />
-                                        Phát
-                                    </button>
+                            <div className="bg-gray-800/40 p-1 rounded-xl border border-gray-700/50 flex items-center shadow-lg backdrop-blur-sm">
+                                <div className="pl-4 pr-3 text-gray-500">
+                                    <LinkIcon size={20} />
                                 </div>
-                            )}
+                                <input
+                                    type="text"
+                                    placeholder="Dán link YouTube tại đây..."
+                                    value={inputUrl}
+                                    onChange={(e) => setInputUrl(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleLoadVideo()}
+                                    className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
+                                />
+                                <button
+                                    onClick={handleLoadVideo}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 m-1 shadow-md hover:shadow-lg active:scale-95"
+                                >
+                                    <Play size={16} fill="currentColor" />
+                                    Phát
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
