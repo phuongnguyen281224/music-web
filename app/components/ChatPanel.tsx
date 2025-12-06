@@ -72,19 +72,7 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
 
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !username) return;
-
-    if (!database) {
-      const msg: Message = {
-        id: Date.now().toString(),
-        sender: username,
-        text: newMessage.trim(),
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, msg]);
-      setNewMessage('');
-      return;
-    }
+    if (!newMessage.trim() || !username || !database) return;
 
     const messagesRef = ref(database, `rooms/${roomId}/messages`);
     push(messagesRef, {
@@ -147,12 +135,9 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
                 <MessageCircle size={20} className="text-blue-500" />
             </div>
             <div>
-                <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-white text-sm">Chat Room</h2>
-                    {!database && <span className="text-[10px] px-1.5 py-0.5 bg-gray-700 rounded text-gray-300">Local</span>}
-                </div>
+                <h2 className="font-bold text-white text-sm">Chat Room</h2>
                 <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full animate-pulse ${database ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                     <span className="text-xs text-gray-400">{messages.length} tin nhắn</span>
                 </div>
             </div>

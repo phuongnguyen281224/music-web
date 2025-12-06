@@ -41,7 +41,7 @@ export default function Room({ params }: RoomProps) {
       // Check if this user is host via localStorage
       if (typeof window !== 'undefined') {
         const isHostStored = localStorage.getItem(`host_${resolvedParams.id}`) === 'true';
-        setIsHost(isHostStored || !database);
+        setIsHost(isHostStored);
       }
     };
     unwrapParams();
@@ -68,7 +68,7 @@ export default function Room({ params }: RoomProps) {
 
     // Validate config
     if (!database) {
-        setStatus('Chế độ Local (không đồng bộ)');
+        setStatus('Lỗi: Chưa cấu hình Firebase. Hãy kiểm tra file .env.local');
         return;
     }
 
@@ -185,12 +185,6 @@ export default function Room({ params }: RoomProps) {
   const loadVideo = () => {
     const id = extractVideoId(inputUrl);
     if (id) {
-        if (!database) {
-            setVideoId(id);
-            setInputUrl('');
-            return;
-        }
-
         if (isHost) {
             updateRoomState({
                 videoId: id,
