@@ -4,14 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { ref, onValue, set, update, serverTimestamp, push, child, get } from "firebase/database";
 import { database } from '@/lib/firebase';
-import {
-} from "react-resizable-panels";
-import ChatPanel from '@/app/components/ChatPanel';
-// NOTE: I will create the resizable wrapper components in a separate file or inline if needed,
-// but based on `react-resizable-panels` docs, they are direct imports.
-// However, to keep it clean, I will import directly from the library here.
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, CheckCircle, GripVertical } from 'lucide-react';
+import ChatPanel from '@/app/components/ChatPanel';
 
 interface RoomProps {
   params: Promise<{ id: string }>;
@@ -230,69 +225,105 @@ export default function Room({ params }: RoomProps) {
 
   // Custom resize handle component
   const ResizeHandle = () => (
-    <PanelResizeHandle className="w-2 bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center cursor-col-resize">
-      <div className="h-8 w-1 bg-gray-500 rounded-full" />
+    <PanelResizeHandle className="w-4 bg-gray-900 flex items-center justify-center cursor-col-resize group relative z-10 -ml-2 hover:ml-0 transition-all">
+      <div className="w-1 h-12 bg-gray-700 group-hover:bg-blue-500 rounded-full transition-colors duration-200" />
     </PanelResizeHandle>
   );
 
   return (
-    <div className="flex h-screen w-full bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-950 text-white overflow-hidden">
         <PanelGroup direction="horizontal">
             {/* Music Panel */}
-            <Panel defaultSize={75} minSize={30}>
-                <div className="h-full flex flex-col items-center overflow-y-auto p-4">
-                    <div className="w-full max-w-5xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-2xl font-bold truncate">Phòng: {roomId}</h1>
-                            <button
-                                onClick={() => window.location.href = '/'}
-                                className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 whitespace-nowrap ml-4"
-                            >
-                                Rời Phòng
-                            </button>
+            <Panel defaultSize={75} minSize={30} className="bg-gray-900/50">
+                <div className="h-full flex flex-col">
+                    {/* Header */}
+                    <div className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900 sticky top-0 z-20 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                            <h1 className="text-xl font-bold tracking-tight text-white">
+                                Phòng: <span className="text-blue-400 font-mono">{roomId}</span>
+                            </h1>
+                            {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
+                                <span className="ml-4 flex items-center gap-1 text-xs text-red-400 bg-red-900/20 px-2 py-1 rounded border border-red-900/50">
+                                    <AlertTriangle size={12} /> Config Error
+                                </span>
+                            )}
                         </div>
+                        <button
+                            onClick={() => window.location.href = '/'}
+                            className="flex items-center gap-2 bg-gray-800 hover:bg-red-600/90 hover:text-white text-gray-300 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hover:border-red-500"
+                        >
+                            <LogOut size={16} />
+                            Rời Phòng
+                        </button>
+                    </div>
 
-                        <div className="text-sm text-gray-400 mb-2 text-center">{status}</div>
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col items-center">
+                        <div className="w-full max-w-5xl space-y-6">
 
-                        {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
-                            <div className="bg-red-900/50 p-4 mb-4 text-center text-red-200 rounded border border-red-500">
-                                ⚠️ Cảnh báo: Chưa cấu hình Firebase Key. Vui lòng tạo file <code>.env.local</code> và điền thông tin.
+                            {/* Status Bar */}
+                            <div className="flex items-center justify-between text-sm bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700/50">
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <Info size={16} />
+                                    <span>Trạng thái: {status}</span>
+                                </div>
+                                {!isHost && (
+                                    <div className="flex items-center gap-2 text-blue-400 bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">
+                                        <Info size={12} />
+                                        Đang xem cùng Host
+                                    </div>
+                                )}
                             </div>
-                        )}
 
-                        {!isHost && (
-                            <div className="bg-blue-900/50 p-2 mb-4 text-center text-blue-200 text-sm rounded">
-                                ℹ️ Bạn đang xem cùng Host.
+                            {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                                    <div className="text-sm text-red-200">
+                                        <p className="font-bold mb-1">Thiếu cấu hình Firebase</p>
+                                        <p>Vui lòng tạo file <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code> và điền thông tin API Key.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Video Player */}
+                            <div className="relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                                <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+                                    <YouTube
+                                        videoId={videoId}
+                                        opts={opts}
+                                        onReady={onPlayerReady}
+                                        onStateChange={onPlayerStateChange}
+                                        className="absolute top-0 left-0 w-full h-full"
+                                    />
+                                </div>
                             </div>
-                        )}
 
-                        <div className="aspect-video bg-black w-full rounded-xl overflow-hidden shadow-2xl mb-6 relative">
-                            <YouTube
-                                videoId={videoId}
-                                opts={opts}
-                                onReady={onPlayerReady}
-                                onStateChange={onPlayerStateChange}
-                                className="absolute top-0 left-0 w-full h-full"
-                            />
+                            {/* Host Controls */}
+                            {isHost && (
+                                <div className="bg-gray-800/40 p-1 rounded-xl border border-gray-700/50 flex items-center shadow-lg backdrop-blur-sm">
+                                    <div className="pl-4 pr-3 text-gray-500">
+                                        <LinkIcon size={20} />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Dán link YouTube tại đây..."
+                                        value={inputUrl}
+                                        onChange={(e) => setInputUrl(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && loadVideo()}
+                                        className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
+                                    />
+                                    <button
+                                        onClick={loadVideo}
+                                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 m-1 shadow-md hover:shadow-lg active:scale-95"
+                                    >
+                                        <Play size={16} fill="currentColor" />
+                                        Phát
+                                    </button>
+                                </div>
+                            )}
                         </div>
-
-                        {isHost && (
-                            <div className="flex gap-2 mb-10">
-                                <input
-                                    type="text"
-                                    placeholder="Dán link YouTube..."
-                                    value={inputUrl}
-                                    onChange={(e) => setInputUrl(e.target.value)}
-                                    className="flex-1 p-3 rounded bg-gray-800 border border-gray-700 text-white"
-                                />
-                                <button
-                                    onClick={loadVideo}
-                                    className="bg-green-600 px-6 py-3 rounded font-bold hover:bg-green-700"
-                                >
-                                    Phát
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </Panel>
@@ -300,7 +331,7 @@ export default function Room({ params }: RoomProps) {
             <ResizeHandle />
 
             {/* Chat Panel */}
-            <Panel defaultSize={25} minSize={20}>
+            <Panel defaultSize={25} minSize={20} className="bg-gray-900 border-l border-gray-800">
                 <div className="h-full">
                     {roomId && <ChatPanel roomId={roomId} />}
                 </div>
