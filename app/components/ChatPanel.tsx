@@ -125,7 +125,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   };
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-gray-900">
+    <div className="flex flex-col h-full relative overflow-hidden bg-gray-900 justify-between">
       {/* Background Layer */}
       {bgImage && (
         <>
@@ -147,7 +147,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
 
       {/* Settings Modal/Panel */}
       {showSettings && (
-        <div className="absolute top-16 right-4 z-30 w-72 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div className="absolute top-16 right-4 z-30 w-[calc(100%-2rem)] max-w-[18rem] bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
             <h3 className="text-white font-semibold flex items-center gap-2">
               <Settings size={18} /> Cài đặt giao diện
@@ -286,7 +286,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent z-10 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent z-10 relative min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
             <MessageCircle size={48} strokeWidth={1} className="mb-2" />
