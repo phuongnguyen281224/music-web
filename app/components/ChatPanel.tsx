@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { roomService } from '@/lib/services/roomService';
 import { onValue } from 'firebase/database';
-import { Send, MessageCircle, Edit2, Settings, Image as ImageIcon, Palette, Trash2, X } from 'lucide-react';
+import { Send, MessageCircle, Edit2, Settings, Image as ImageIcon, Palette, Trash2, X, Sliders } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -28,13 +28,22 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   const [userColor, setUserColor] = useState('#2563eb'); // Default blue-600
   const [showSettings, setShowSettings] = useState(false);
 
+  // New State for Blur and Overlay
+  const [bgBlur, setBgBlur] = useState(8);
+  const [bgOverlay, setBgOverlay] = useState(40);
+
   // Load settings from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const savedBg = localStorage.getItem('chat_bg_image');
         const savedColor = localStorage.getItem('chat_user_color');
+        const savedBlur = localStorage.getItem('chat_bg_blur');
+        const savedOverlay = localStorage.getItem('chat_bg_overlay');
+
         if (savedBg) setBgImage(savedBg);
         if (savedColor) setUserColor(savedColor);
+        if (savedBlur) setBgBlur(Number(savedBlur));
+        if (savedOverlay) setBgOverlay(Number(savedOverlay));
     }
   }, []);
 
@@ -103,27 +112,42 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
     localStorage.removeItem('chat_user_color');
   };
 
+  const handleBlurChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setBgBlur(value);
+    localStorage.setItem('chat_bg_blur', String(value));
+  };
+
+  const handleOverlayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setBgOverlay(value);
+    localStorage.setItem('chat_bg_overlay', String(value));
+  };
+
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-gray-900">
       {/* Background Layer */}
       {bgImage && (
         <>
           <div
-            className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
+            className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"
             style={{
               backgroundImage: `url(${bgImage})`,
-              filter: 'blur(8px)',
+              filter: `blur(${bgBlur}px)`,
               transform: 'scale(1.1)', // Prevent blurred edges
             }}
           />
           {/* Dark Overlay for Readability */}
-          <div className="absolute inset-0 z-0 bg-black/40" />
+          <div
+            className="absolute inset-0 z-0 transition-all duration-300"
+            style={{ backgroundColor: `rgba(0,0,0, ${bgOverlay / 100})` }}
+          />
         </>
       )}
 
       {/* Settings Modal/Panel */}
       {showSettings && (
-        <div className="absolute top-16 right-4 z-30 w-72 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-16 right-4 z-30 w-72 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
             <h3 className="text-white font-semibold flex items-center gap-2">
               <Settings size={18} /> Cài đặt giao diện
@@ -137,30 +161,70 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
           </div>
 
           {/* Background Settings */}
-          <div className="mb-4">
-            <label className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
-              <ImageIcon size={14} /> Ảnh nền chat
-            </label>
-            <div className="flex gap-2">
-              <label className="flex-1 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs py-2 px-3 rounded-lg transition-colors text-center truncate flex items-center justify-center gap-2">
-                <span>{bgImage ? 'Thay đổi ảnh' : 'Tải ảnh lên'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </label>
-              {bgImage && (
-                <button
-                  onClick={handleRemoveImage}
-                  className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                  title="Xóa ảnh nền"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
+          <div className="mb-4 space-y-3">
+            <div>
+                <label className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+                <ImageIcon size={14} /> Ảnh nền chat
+                </label>
+                <div className="flex gap-2">
+                <label className="flex-1 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs py-2 px-3 rounded-lg transition-colors text-center truncate flex items-center justify-center gap-2">
+                    <span>{bgImage ? 'Thay đổi ảnh' : 'Tải ảnh lên'}</span>
+                    <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    />
+                </label>
+                {bgImage && (
+                    <button
+                    onClick={handleRemoveImage}
+                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                    title="Xóa ảnh nền"
+                    >
+                    <Trash2 size={16} />
+                    </button>
+                )}
+                </div>
             </div>
+
+            {bgImage && (
+                <div className="space-y-3 p-3 bg-gray-700/30 rounded-lg border border-gray-700/50">
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                                <Sliders size={12} /> Độ mờ (Blur)
+                            </label>
+                            <span className="text-[10px] text-gray-500 font-mono">{bgBlur}px</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="20"
+                            value={bgBlur}
+                            onChange={handleBlurChange}
+                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                                <Sliders size={12} /> Độ tối nền
+                            </label>
+                            <span className="text-[10px] text-gray-500 font-mono">{bgOverlay}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="90"
+                            value={bgOverlay}
+                            onChange={handleOverlayChange}
+                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                    </div>
+                </div>
+            )}
           </div>
 
           {/* Color Settings */}
