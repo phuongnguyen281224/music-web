@@ -4,6 +4,14 @@ import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { ref, onValue, set, update, serverTimestamp, push, child, get } from "firebase/database";
 import { database } from '@/lib/firebase';
+import {
+} from "react-resizable-panels";
+import ChatPanel from '@/app/components/ChatPanel';
+// NOTE: I will create the resizable wrapper components in a separate file or inline if needed,
+// but based on `react-resizable-panels` docs, they are direct imports.
+// However, to keep it clean, I will import directly from the library here.
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+
 
 interface RoomProps {
   params: Promise<{ id: string }>;
@@ -220,61 +228,84 @@ export default function Room({ params }: RoomProps) {
     },
   };
 
+  // Custom resize handle component
+  const ResizeHandle = () => (
+    <PanelResizeHandle className="w-2 bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center cursor-col-resize">
+      <div className="h-8 w-1 bg-gray-500 rounded-full" />
+    </PanelResizeHandle>
+  );
+
   return (
-    <div className="flex min-h-screen flex-col items-center bg-gray-900 text-white p-4">
-      <div className="w-full max-w-4xl">
-        <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Phòng: {roomId}</h1>
-            <button
-                onClick={() => window.location.href = '/'}
-                className="bg-red-600 px-4 py-2 rounded hover:bg-red-700"
-            >
-                Rời Phòng
-            </button>
-        </div>
+    <div className="flex h-screen w-full bg-gray-900 text-white overflow-hidden">
+        <PanelGroup direction="horizontal">
+            {/* Music Panel */}
+            <Panel defaultSize={75} minSize={30}>
+                <div className="h-full flex flex-col items-center overflow-y-auto p-4">
+                    <div className="w-full max-w-5xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h1 className="text-2xl font-bold truncate">Phòng: {roomId}</h1>
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 whitespace-nowrap ml-4"
+                            >
+                                Rời Phòng
+                            </button>
+                        </div>
 
-        <div className="text-sm text-gray-400 mb-2 text-center">{status}</div>
+                        <div className="text-sm text-gray-400 mb-2 text-center">{status}</div>
 
-        {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
-            <div className="bg-red-900/50 p-4 mb-4 text-center text-red-200 rounded border border-red-500">
-                ⚠️ Cảnh báo: Chưa cấu hình Firebase Key. Vui lòng tạo file <code>.env.local</code> và điền thông tin (xem <code>.env.local.example</code>).
-            </div>
-        )}
+                        {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
+                            <div className="bg-red-900/50 p-4 mb-4 text-center text-red-200 rounded border border-red-500">
+                                ⚠️ Cảnh báo: Chưa cấu hình Firebase Key. Vui lòng tạo file <code>.env.local</code> và điền thông tin.
+                            </div>
+                        )}
 
-        {!isHost && (
-            <div className="bg-blue-900/50 p-2 mb-4 text-center text-blue-200 text-sm rounded">
-                ℹ️ Bạn đang xem cùng Host.
-            </div>
-        )}
+                        {!isHost && (
+                            <div className="bg-blue-900/50 p-2 mb-4 text-center text-blue-200 text-sm rounded">
+                                ℹ️ Bạn đang xem cùng Host.
+                            </div>
+                        )}
 
-        <div className="aspect-video bg-black w-full rounded-xl overflow-hidden shadow-2xl mb-6 relative">
-             <YouTube
-                videoId={videoId}
-                opts={opts}
-                onReady={onPlayerReady}
-                onStateChange={onPlayerStateChange}
-                className="absolute top-0 left-0 w-full h-full"
-            />
-        </div>
+                        <div className="aspect-video bg-black w-full rounded-xl overflow-hidden shadow-2xl mb-6 relative">
+                            <YouTube
+                                videoId={videoId}
+                                opts={opts}
+                                onReady={onPlayerReady}
+                                onStateChange={onPlayerStateChange}
+                                className="absolute top-0 left-0 w-full h-full"
+                            />
+                        </div>
 
-        {isHost && (
-            <div className="flex gap-2">
-                <input
-                    type="text"
-                    placeholder="Dán link YouTube..."
-                    value={inputUrl}
-                    onChange={(e) => setInputUrl(e.target.value)}
-                    className="flex-1 p-3 rounded bg-gray-800 border border-gray-700 text-white"
-                />
-                <button
-                    onClick={loadVideo}
-                    className="bg-green-600 px-6 py-3 rounded font-bold hover:bg-green-700"
-                >
-                    Phát
-                </button>
-            </div>
-        )}
-      </div>
+                        {isHost && (
+                            <div className="flex gap-2 mb-10">
+                                <input
+                                    type="text"
+                                    placeholder="Dán link YouTube..."
+                                    value={inputUrl}
+                                    onChange={(e) => setInputUrl(e.target.value)}
+                                    className="flex-1 p-3 rounded bg-gray-800 border border-gray-700 text-white"
+                                />
+                                <button
+                                    onClick={loadVideo}
+                                    className="bg-green-600 px-6 py-3 rounded font-bold hover:bg-green-700"
+                                >
+                                    Phát
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Panel>
+
+            <ResizeHandle />
+
+            {/* Chat Panel */}
+            <Panel defaultSize={25} minSize={20}>
+                <div className="h-full">
+                    {roomId && <ChatPanel roomId={roomId} />}
+                </div>
+            </Panel>
+        </PanelGroup>
     </div>
   );
 }
