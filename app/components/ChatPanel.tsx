@@ -125,7 +125,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   };
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-gray-900">
+    <div className="flex flex-col h-full relative overflow-hidden bg-gray-900 justify-between">
       {/* Background Layer */}
       {bgImage && (
         <>
@@ -286,7 +286,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent z-10 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent z-10 relative min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
             <MessageCircle size={48} strokeWidth={1} className="mb-2" />
