@@ -123,7 +123,7 @@ export default function Room({ params }: RoomProps) {
   );
 
   return (
-    <div className="flex h-screen w-full bg-gray-950 text-white overflow-hidden relative">
+    <div className="flex h-dvh w-full bg-gray-950 text-white overflow-hidden relative">
 
         {/* Name Modal */}
         {showNameModal && (
