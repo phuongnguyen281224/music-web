@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { roomService } from '@/lib/services/roomService';
-import { ref, onValue, push, serverTimestamp, off } from 'firebase/database';
-import { database } from '@/lib/firebase';
-import { Send, User, MessageCircle, MoreVertical, Edit2 } from 'lucide-react';
+import { onValue } from 'firebase/database';
+import { Send, MessageCircle, Edit2 } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -15,34 +14,21 @@ interface Message {
 
 interface ChatPanelProps {
   roomId: string;
+  username: string; // Passed from parent
+  onChangeName: () => void; // Request parent to change name
 }
 
-export default function ChatPanel({ roomId }: ChatPanelProps) {
+export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [username, setUsername] = useState<string>('');
-  const [isNameSet, setIsNameSet] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Initialize user
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedName = localStorage.getItem('chat_username');
-      if (storedName) {
-        setUsername(storedName);
-        setIsNameSet(true);
-      }
-    }
-  }, []);
 
   // Subscribe to messages
   useEffect(() => {
     if (!roomId) return;
 
-    // Use service logic but here we manually subscribe to the specific path
-    // Ideally we'd move this to a hook too, but for now we update it to use the correct path
-    // The previous implementation was `rooms/${roomId}/messages`, which matches `roomService.getMessagesRef`
     const messagesRef = roomService.getMessagesRef(roomId);
+    if (!messagesRef) return;
 
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
@@ -65,13 +51,6 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSetUsername = () => {
-    if (username.trim()) {
-      localStorage.setItem('chat_username', username.trim());
-      setIsNameSet(true);
-    }
-  };
-
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !username) return;
@@ -79,48 +58,6 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
     roomService.sendMessage(roomId, username, newMessage.trim());
     setNewMessage('');
   };
-
-  if (!isNameSet) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-6 bg-gray-900 text-white relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="w-full max-w-sm bg-gray-800/50 backdrop-blur-md p-8 rounded-2xl border border-gray-700 shadow-xl relative z-10">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                <User className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-white">Tham gia Chat</h3>
-            <p className="text-gray-400 text-sm mt-2">Nhập tên của bạn để bắt đầu trò chuyện</p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">Tên hiển thị</label>
-                <input
-                    type="text"
-                    placeholder="VD: Minh"
-                    className="w-full p-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSetUsername()}
-                    autoFocus
-                />
-            </div>
-            <button
-                onClick={handleSetUsername}
-                disabled={!username.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98]"
-            >
-                Vào phòng chat
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100">
@@ -139,13 +76,7 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
             </div>
         </div>
         <button
-          onClick={() => {
-            if (confirm('Bạn muốn đổi tên?')) {
-                localStorage.removeItem('chat_username');
-                setIsNameSet(false);
-                setUsername('');
-            }
-          }}
+          onClick={onChangeName}
           className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
           title="Đổi tên"
         >
@@ -164,14 +95,12 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
         ) : (
           messages.map((msg, index) => {
             const isMe = msg.sender === username;
-            // Check if previous message was from same sender to group them (optional, simple logic)
             const isSequence = index > 0 && messages[index - 1].sender === msg.sender;
 
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isSequence ? 'mt-1' : 'mt-4'}`}>
                 {!isMe && !isSequence && (
                     <div className="ml-1 mb-1 text-xs text-gray-400 font-medium flex items-center gap-2">
-                        {/* Placeholder avatar logic */}
                         <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-[10px] text-white uppercase">
                             {msg.sender[0]}
                         </div>
@@ -188,7 +117,6 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
                 >
                   <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
                 </div>
-                {/* Optional timestamp could go here */}
               </div>
             );
           })
@@ -203,12 +131,13 @@ export default function ChatPanel({ roomId }: ChatPanelProps) {
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Nhập tin nhắn..."
-            className="flex-1 bg-gray-800/50 text-white rounded-xl pl-4 pr-12 py-3 text-sm border border-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-500"
+            placeholder={username ? "Nhập tin nhắn..." : "Đặt tên để chat..."}
+            disabled={!username}
+            className="flex-1 bg-gray-800/50 text-white rounded-xl pl-4 pr-12 py-3 text-sm border border-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-500 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || !username}
             className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg disabled:opacity-0 disabled:pointer-events-none transition-all duration-200"
           >
             <Send size={16} />

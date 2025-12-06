@@ -1,4 +1,4 @@
-import { ref, onValue, set, update, serverTimestamp, push, get, DatabaseReference, off, DataSnapshot } from "firebase/database";
+import { ref, onValue, set, update, serverTimestamp, push, get, DatabaseReference, off, DataSnapshot, onDisconnect } from "firebase/database";
 import { database } from '@/lib/firebase';
 
 // -- Types --
@@ -15,19 +15,41 @@ export interface RoomMetadata {
     createdAt: number;
 }
 
+export interface Participant {
+    name: string;
+    online: boolean;
+    lastActive: number;
+}
+
 // -- Service --
 
 export const roomService = {
-    // Refs
+    // Refs - Return null if DB not init
     getRef: (path: string) => {
-        if (!database) throw new Error("Database not initialized");
+        if (!database) return null;
         return ref(database, path);
     },
 
-    getPlayerRef: (roomId: string) => ref(database!, `rooms/${roomId}/player`),
-    getMessagesRef: (roomId: string) => ref(database!, `rooms/${roomId}/messages`),
-    getMetaRef: (roomId: string) => ref(database!, `rooms/${roomId}/meta`),
-    getServerTimeOffsetRef: () => ref(database!, ".info/serverTimeOffset"),
+    getPlayerRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/player`);
+    },
+    getMessagesRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/messages`);
+    },
+    getMetaRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/meta`);
+    },
+    getParticipantsRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/participants`);
+    },
+    getServerTimeOffsetRef: () => {
+        if (!database) return null;
+        return ref(database, ".info/serverTimeOffset");
+    },
 
     // Actions
 
@@ -35,6 +57,7 @@ export const roomService = {
     initializeRoom: async (roomId: string, defaultVideoId: string = 'dQw4w9WgXcQ') => {
         if (!database) return;
         const playerRef = roomService.getPlayerRef(roomId);
+        if (!playerRef) return;
 
         // Check if exists first to avoid overwriting
         const snapshot = await get(playerRef);
@@ -52,6 +75,7 @@ export const roomService = {
     updatePlayerState: (roomId: string, updates: Partial<PlayerState>) => {
         if (!database) return;
         const playerRef = roomService.getPlayerRef(roomId);
+        if (!playerRef) return;
         return update(playerRef, {
             ...updates,
             updatedAt: serverTimestamp()
@@ -62,6 +86,7 @@ export const roomService = {
     sendMessage: (roomId: string, sender: string, text: string) => {
         if (!database) return;
         const messagesRef = roomService.getMessagesRef(roomId);
+        if (!messagesRef) return;
         return push(messagesRef, {
             sender,
             text,
@@ -69,10 +94,30 @@ export const roomService = {
         });
     },
 
+    // Participant Logic
+    registerParticipant: (roomId: string, userId: string, name: string) => {
+        if (!database) return;
+        const userRef = ref(database, `rooms/${roomId}/participants/${userId}`);
+
+        // Set online status
+        set(userRef, {
+            name,
+            online: true,
+            lastActive: serverTimestamp()
+        });
+
+        // Set offline on disconnect
+        onDisconnect(userRef).update({
+            online: false,
+            lastActive: serverTimestamp()
+        });
+    },
+
     // Listeners (returning unsubscribe function)
     onPlayerStateChange: (roomId: string, callback: (data: PlayerState | null) => void) => {
         if (!database) return () => {};
         const playerRef = roomService.getPlayerRef(roomId);
+        if (!playerRef) return () => {};
 
         const listener = (snapshot: DataSnapshot) => {
             callback(snapshot.val());
@@ -85,6 +130,7 @@ export const roomService = {
     onServerTimeOffsetChange: (callback: (offset: number) => void) => {
         if (!database) return () => {};
         const offsetRef = roomService.getServerTimeOffsetRef();
+        if (!offsetRef) return () => {};
         return onValue(offsetRef, (snap) => callback(snap.val() || 0));
     }
 };

@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
 import { useRoom } from '@/hooks/useRoom';
+import { usePresence } from '@/hooks/usePresence';
 
 interface RoomProps {
   params: Promise<{ id: string }>;
@@ -23,43 +24,41 @@ export default function Room({ params }: RoomProps) {
       isRemoteUpdate
   } = useRoom('', params);
 
+  const {
+      username,
+      setUserName,
+      isNameSet,
+      participants
+  } = usePresence(roomId);
+
   const [inputUrl, setInputUrl] = useState('');
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [tempName, setTempName] = useState('');
+  const [showNameModal, setShowNameModal] = useState(false);
 
   // Local Player Refs
   const playerRef = useRef<any>(null);
 
-  // --- Sync Logic (View Layer) ---
-
-  // Handle remote updates from the hook
+  // Sync Video Logic
   useEffect(() => {
       if (!roomId || !playerState) return;
 
-      // 1. Sync Video ID (Declarative)
-      // The YouTube component handles the prop change automatically, but we might need to reset state if needed
-
-      // 2. Sync Playback (Imperative)
       if (playerRef.current) {
           try {
               const currentPlayerState = playerRef.current.getPlayerState();
-
-              // Calculate expected current time
               let expectedTime = playerState.timestamp;
               if (playerState.isPlaying && playerState.updatedAt) {
                   const estimatedServerTime = Date.now() + serverTimeOffset;
                   const diff = (estimatedServerTime - playerState.updatedAt) / 1000;
-                  if (diff > 0) {
-                      expectedTime += diff;
-                  }
+                  if (diff > 0) expectedTime += diff;
               }
 
-              // Seek if drift is too large
               const currentTime = playerRef.current.getCurrentTime();
               if (Math.abs(currentTime - expectedTime) > 1.5) {
                  isRemoteUpdate.current = true;
                  playerRef.current.seekTo(expectedTime, true);
               }
 
-              // Play/Pause
               if (playerState.isPlaying && currentPlayerState !== 1) {
                   isRemoteUpdate.current = true;
                   playerRef.current.playVideo();
@@ -71,55 +70,50 @@ export default function Room({ params }: RoomProps) {
               console.warn("Error syncing player state:", error);
           }
       }
-
-      // Reset remote flag
       setTimeout(() => { isRemoteUpdate.current = false; }, 500);
+  }, [playerState, serverTimeOffset, roomId]);
 
-  }, [playerState, serverTimeOffset, roomId]); // Dependency on playerState triggers this
+  // Initial Name Modal Check
+  useEffect(() => {
+      if (!isNameSet && roomId) {
+          setShowNameModal(true);
+      } else {
+          setShowNameModal(false);
+      }
+  }, [isNameSet, roomId]);
 
-
-  // --- Event Handlers ---
-
+  // Handlers
   const onPlayerStateChange = (event: any) => {
     if (isRemoteUpdate.current) return;
-
     const currentTime = event.target.getCurrentTime();
-
-    if (event.data === 1) { // Playing
-        updatePlayer({
-            isPlaying: true,
-            timestamp: currentTime
-        });
-    } else if (event.data === 2) { // Paused
-        updatePlayer({
-            isPlaying: false,
-            timestamp: currentTime
-        });
-    }
+    if (event.data === 1) updatePlayer({ isPlaying: true, timestamp: currentTime });
+    else if (event.data === 2) updatePlayer({ isPlaying: false, timestamp: currentTime });
   };
 
   const handleLoadVideo = () => {
-    if (changeVideo(inputUrl)) {
-        setInputUrl('');
-    } else {
-        alert('Link không hợp lệ');
-    }
+    if (changeVideo(inputUrl)) setInputUrl('');
+    else alert('Link không hợp lệ');
   };
 
-  const onPlayerReady = (event: any) => {
-      playerRef.current = event.target;
-      // Trigger a sync manually if needed, or rely on the effect
+  const onPlayerReady = (event: any) => playerRef.current = event.target;
+
+  const handleSaveName = () => {
+      if (tempName.trim()) {
+          setUserName(tempName);
+          setShowNameModal(false);
+      }
   };
 
-  // --- Render ---
+  const handleChangeName = () => {
+      setTempName(username);
+      setShowNameModal(true);
+  };
 
+  // UI Components
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
-    playerVars: {
-      autoplay: 1,
-      controls: 1,
-    },
+    playerVars: { autoplay: 1, controls: 1 },
   };
 
   const ResizeHandle = () => (
@@ -129,7 +123,94 @@ export default function Room({ params }: RoomProps) {
   );
 
   return (
-    <div className="flex h-screen w-full bg-gray-950 text-white overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-950 text-white overflow-hidden relative">
+
+        {/* Name Modal */}
+        {showNameModal && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+                    {isNameSet && (
+                        <button
+                            onClick={() => setShowNameModal(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                            <User className="w-8 h-8 text-white" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white">
+                            {isNameSet ? 'Đổi tên hiển thị' : 'Tham gia phòng nhạc'}
+                        </h2>
+                        <p className="text-gray-400 text-sm mt-2">
+                            {isNameSet ? 'Nhập tên mới của bạn' : 'Vui lòng nhập tên để mọi người nhận ra bạn'}
+                        </p>
+                    </div>
+                    <div className="space-y-4">
+                        <input
+                            type="text"
+                            placeholder="Tên của bạn..."
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                            autoFocus
+                            className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        />
+                        <button
+                            onClick={handleSaveName}
+                            disabled={!tempName.trim()}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98]"
+                        >
+                            {isNameSet ? 'Lưu thay đổi' : 'Vào phòng'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Participants Modal / Overlay */}
+        {showParticipants && (
+             <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowParticipants(false)}>
+                <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-800">
+                        <h3 className="font-bold flex items-center gap-2">
+                            <Users size={20} className="text-blue-500"/>
+                            Danh sách người tham gia
+                        </h3>
+                        <button onClick={() => setShowParticipants(false)} className="text-gray-400 hover:text-white">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                        {Object.entries(participants).map(([id, p]) => (
+                            <div key={id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${p.online ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>
+                                        {p.name[0]?.toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium text-white flex items-center gap-2">
+                                            {p.name}
+                                            {p.name === username && <span className="text-[10px] bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">Bạn</span>}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            {p.online ? 'Đang hoạt động' : 'Đã rời phòng'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full ${p.online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-gray-600'}`}></div>
+                            </div>
+                        ))}
+                         {Object.keys(participants).length === 0 && (
+                            <p className="text-center text-gray-500 py-4 text-sm">Chưa có ai khác trong phòng</p>
+                        )}
+                    </div>
+                </div>
+             </div>
+        )}
+
         <PanelGroup direction="horizontal">
             {/* Music Panel */}
             <Panel defaultSize={75} minSize={30} className="bg-gray-900/50">
@@ -147,13 +228,22 @@ export default function Room({ params }: RoomProps) {
                                 </span>
                             )}
                         </div>
-                        <button
-                            onClick={() => window.location.href = '/'}
-                            className="flex items-center gap-2 bg-gray-800 hover:bg-red-600/90 hover:text-white text-gray-300 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hover:border-red-500"
-                        >
-                            <LogOut size={16} />
-                            Rời Phòng
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setShowParticipants(true)}
+                                className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700"
+                            >
+                                <Users size={16} />
+                                <span className="hidden sm:inline">Thành viên ({Object.values(participants).filter(p => p.online).length})</span>
+                            </button>
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                className="flex items-center gap-2 bg-gray-800 hover:bg-red-600/90 hover:text-white text-gray-300 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hover:border-red-500"
+                            >
+                                <LogOut size={16} />
+                                <span className="hidden sm:inline">Rời Phòng</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Content */}
@@ -227,7 +317,13 @@ export default function Room({ params }: RoomProps) {
             {/* Chat Panel */}
             <Panel defaultSize={25} minSize={20} className="bg-gray-900 border-l border-gray-800">
                 <div className="h-full">
-                    {roomId && <ChatPanel roomId={roomId} />}
+                    {roomId && (
+                        <ChatPanel
+                            roomId={roomId}
+                            username={username}
+                            onChangeName={handleChangeName}
+                        />
+                    )}
                 </div>
             </Panel>
         </PanelGroup>
