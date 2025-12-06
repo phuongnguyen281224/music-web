@@ -103,12 +103,11 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
 
     // Actions
     const updatePlayer = useCallback((updates: Partial<PlayerState>) => {
-        if (!isHost || !id) return;
+        if (!id) return;
         roomService.updatePlayerState(id, updates);
-    }, [isHost, id]);
+    }, [id]);
 
     const changeVideo = useCallback((url: string) => {
-        if (!isHost) return;
         const videoId = extractVideoId(url);
         if (videoId) {
             updatePlayer({
@@ -119,7 +118,7 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
             return true;
         }
         return false;
-    }, [isHost, updatePlayer]);
+    }, [updatePlayer]);
 
     return {
         roomId: id,
