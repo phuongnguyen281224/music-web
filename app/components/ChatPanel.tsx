@@ -72,7 +72,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
 
   // Auto scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages]);
 
   const sendMessage = (e: React.FormEvent) => {
@@ -86,11 +86,28 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Vui lòng chọn file ảnh hợp lệ');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB để đảm bảo hiệu năng.');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
         setBgImage(result);
-        localStorage.setItem('chat_bg_image', result);
+        try {
+          localStorage.setItem('chat_bg_image', result);
+        } catch (error) {
+          console.error('Error saving image to localStorage:', error);
+          alert('Không thể lưu ảnh nền (bộ nhớ trình duyệt đã đầy). Ảnh sẽ chỉ hiển thị trong phiên này.');
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -132,7 +149,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
           <div
             className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"
             style={{
-              backgroundImage: `url(${bgImage})`,
+              backgroundImage: `url("${bgImage}")`,
               filter: `blur(${bgBlur}px)`,
               transform: 'scale(1.1)', // Prevent blurred edges
             }}
