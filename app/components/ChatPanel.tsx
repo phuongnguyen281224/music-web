@@ -147,7 +147,7 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
 
       {/* Settings Modal/Panel */}
       {showSettings && (
-        <div className="absolute top-16 right-4 z-30 w-72 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div className="absolute top-16 right-4 z-30 w-[calc(100%-2rem)] max-w-[18rem] bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
             <h3 className="text-white font-semibold flex items-center gap-2">
               <Settings size={18} /> Cài đặt giao diện
