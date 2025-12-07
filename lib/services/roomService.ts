@@ -21,6 +21,12 @@ export interface Participant {
     lastActive: number;
 }
 
+export interface RoomSettings {
+    bgImage: string | null;
+    bgBlur: number;
+    bgOverlay: number;
+}
+
 // -- Service --
 
 export const roomService = {
@@ -37,6 +43,10 @@ export const roomService = {
     getMessagesRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/messages`);
+    },
+    getSettingsRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/settings`);
     },
     getMetaRef: (roomId: string) => {
         if (!database) return null;
@@ -92,6 +102,14 @@ export const roomService = {
             text,
             timestamp: serverTimestamp()
         });
+    },
+
+    // Update settings
+    updateSettings: (roomId: string, settings: Partial<RoomSettings>) => {
+        if (!database) return;
+        const settingsRef = roomService.getSettingsRef(roomId);
+        if (!settingsRef) return;
+        return update(settingsRef, settings);
     },
 
     // Participant Logic

@@ -32,20 +32,38 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   const [bgBlur, setBgBlur] = useState(8);
   const [bgOverlay, setBgOverlay] = useState(40);
 
-  // Load settings from localStorage
+  // Load local settings (user color)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-        const savedBg = localStorage.getItem('chat_bg_image');
         const savedColor = localStorage.getItem('chat_user_color');
-        const savedBlur = localStorage.getItem('chat_bg_blur');
-        const savedOverlay = localStorage.getItem('chat_bg_overlay');
-
-        if (savedBg) setBgImage(savedBg);
         if (savedColor) setUserColor(savedColor);
-        if (savedBlur) setBgBlur(Number(savedBlur));
-        if (savedOverlay) setBgOverlay(Number(savedOverlay));
     }
   }, []);
+
+  // Subscribe to room settings (background)
+  useEffect(() => {
+    if (!roomId) return;
+
+    const settingsRef = roomService.getSettingsRef(roomId);
+    if (!settingsRef) return;
+
+    const unsubscribe = onValue(settingsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (data.bgImage) setBgImage(data.bgImage);
+        else setBgImage(null);
+
+        if (data.bgBlur !== undefined) setBgBlur(data.bgBlur);
+        if (data.bgOverlay !== undefined) setBgOverlay(data.bgOverlay);
+      } else {
+        setBgImage(null);
+        setBgBlur(8);
+        setBgOverlay(40);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [roomId]);
 
   // Subscribe to messages
   useEffect(() => {
@@ -101,21 +119,16 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        setBgImage(result);
-        try {
-          localStorage.setItem('chat_bg_image', result);
-        } catch (error) {
-          console.error('Error saving image to localStorage:', error);
-          alert('Không thể lưu ảnh nền (bộ nhớ trình duyệt đã đầy). Ảnh sẽ chỉ hiển thị trong phiên này.');
-        }
+        // setBgImage(result); // Will be updated via listener
+        roomService.updateSettings(roomId, { bgImage: result });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleRemoveImage = () => {
-    setBgImage(null);
-    localStorage.removeItem('chat_bg_image');
+    // setBgImage(null); // Will be updated via listener
+    roomService.updateSettings(roomId, { bgImage: null });
   };
 
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,13 +145,13 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
   const handleBlurChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     setBgBlur(value);
-    localStorage.setItem('chat_bg_blur', String(value));
+    roomService.updateSettings(roomId, { bgBlur: value });
   };
 
   const handleOverlayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     setBgOverlay(value);
-    localStorage.setItem('chat_bg_overlay', String(value));
+    roomService.updateSettings(roomId, { bgOverlay: value });
   };
 
   return (
