@@ -5,6 +5,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
+import MobileNav from '@/app/components/MobileNav';
 import { useRoom } from '@/hooks/useRoom';
 import { usePresence } from '@/hooks/usePresence';
 
@@ -41,6 +42,10 @@ export default function Room({ params }: RoomProps) {
   const [tempName, setTempName] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+
+  // Responsive & Mobile State
+  const [activeTab, setActiveTab] = useState<'music' | 'chat'>('music');
+  const [isMobile, setIsMobile] = useState(false);
 
   // Local Player Refs
   const playerRef = useRef<any>(null);
@@ -87,6 +92,14 @@ export default function Room({ params }: RoomProps) {
           setShowNameModal(false);
       }
   }, [isNameSet, roomId]);
+
+  // Mobile Detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Handlers
   const onPlayerStateChange = (event: any) => {
@@ -142,13 +155,203 @@ export default function Room({ params }: RoomProps) {
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
-    playerVars: { autoplay: 1, controls: 1 },
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      playsinline: 1
+    },
   };
 
   const ResizeHandle = () => (
     <PanelResizeHandle className="w-4 bg-gray-900 flex items-center justify-center cursor-col-resize group relative z-10 -ml-2 hover:ml-0 transition-all">
       <div className="w-1 h-12 bg-gray-700 group-hover:bg-blue-500 rounded-full transition-colors duration-200" />
     </PanelResizeHandle>
+  );
+
+  // --- Panels Content ---
+
+  const musicPanelContent = (
+    <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="h-16 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 bg-gray-900 sticky top-0 z-20 shadow-sm">
+            <div className="flex items-center gap-3">
+                <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                <h1 className="text-xl font-bold tracking-tight text-white flex flex-col md:flex-row md:items-center md:gap-2">
+                    <span>Phòng</span>
+                    <span className="text-blue-400 font-mono text-sm md:text-xl">{roomId}</span>
+                </h1>
+                {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
+                    <span className="ml-4 flex items-center gap-1 text-xs text-red-400 bg-red-900/20 px-2 py-1 rounded border border-red-900/50 hidden md:flex">
+                        <AlertTriangle size={12} /> Config Error
+                    </span>
+                )}
+            </div>
+            <div className="flex items-center gap-2 md:gap-3">
+                <button
+                    onClick={() => setShowParticipants(true)}
+                    className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700"
+                >
+                    <Users size={16} />
+                    <span className="hidden sm:inline">Thành viên ({Object.values(participants).filter(p => p.online).length})</span>
+                </button>
+                <button
+                    onClick={() => window.location.href = '/'}
+                    className="flex items-center gap-2 bg-gray-800 hover:bg-red-600/90 hover:text-white text-gray-300 px-3 py-2 md:px-4 md:py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hover:border-red-500"
+                >
+                    <LogOut size={16} />
+                    <span className="hidden sm:inline">Rời Phòng</span>
+                </button>
+            </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+            <div className="w-full max-w-5xl space-y-6 pb-20 md:pb-0"> {/* Padding bottom for mobile nav */}
+
+                {/* Status Bar */}
+                <div className="flex items-center justify-between text-sm bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700/50">
+                    <div className="flex items-center gap-2 text-gray-400">
+                        <Info size={16} />
+                        <span>Trạng thái: {status}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-blue-400 bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">
+                        <Info size={12} />
+                        Đang đồng bộ
+                    </div>
+                </div>
+
+                {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
+                        <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                        <div className="text-sm text-red-200">
+                            <p className="font-bold mb-1">Thiếu cấu hình Firebase</p>
+                            <p>Vui lòng tạo file <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code> và điền thông tin API Key.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Video Player */}
+                <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                    <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+                        <YouTube
+                            videoId={playerState.videoId}
+                            opts={opts}
+                            onReady={onPlayerReady}
+                            onStateChange={onPlayerStateChange}
+                            className="absolute top-0 left-0 w-full h-full"
+                        />
+                    </div>
+                </div>
+
+                {/* Host Controls */}
+                <div className="bg-gray-800/40 p-1 rounded-xl border border-gray-700/50 flex items-center shadow-lg backdrop-blur-sm">
+                    <div className="pl-4 pr-3 text-gray-500">
+                        <LinkIcon size={20} />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Dán link YouTube tại đây..."
+                        value={inputUrl}
+                        onChange={(e) => setInputUrl(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handlePlayNow()}
+                        className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
+                    />
+                    <div className="flex items-center gap-1 m-1">
+                        <button
+                            onClick={handleAddToQueue}
+                            disabled={isAdding || !inputUrl}
+                            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2.5 md:px-4 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            title="Thêm vào danh sách chờ"
+                        >
+                            <Plus size={16} />
+                            <span className="hidden md:inline">Thêm</span>
+                        </button>
+                        <button
+                            onClick={handlePlayNow}
+                            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 md:px-6 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 text-sm"
+                        >
+                            <Play size={16} fill="currentColor" />
+                            <span className="hidden md:inline">Phát ngay</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Queue List */}
+                <div className="bg-gray-900/40 rounded-xl border border-gray-800 overflow-hidden">
+                    <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+                        <h3 className="font-bold flex items-center gap-2 text-white">
+                            <ListMusic size={20} className="text-blue-500" />
+                            Danh sách phát ({queue.length})
+                        </h3>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-800/50">
+                        {queue.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                <ListMusic size={40} className="mx-auto mb-3 opacity-20" />
+                                <p>Chưa có bài hát nào trong hàng đợi</p>
+                            </div>
+                        ) : (
+                            queue.map((item, index) => (
+                                <div key={item.id} className="p-3 hover:bg-gray-800/50 transition-colors flex items-center gap-3 group">
+                                    <div className="text-gray-500 text-sm font-mono w-6 text-center">
+                                        {index + 1}
+                                    </div>
+                                    <div className="w-16 h-9 bg-gray-800 rounded overflow-hidden shrink-0 relative">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-white truncate" title={item.title}>
+                                            {item.title}
+                                        </div>
+                                        <div className="text-xs text-gray-500 truncate">
+                                            Thêm bởi: {item.addedBy}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => moveItem(item.id, 'up')}
+                                            disabled={index === 0}
+                                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronUp size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => moveItem(item.id, 'down')}
+                                            disabled={index === queue.length - 1}
+                                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronDown size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => removeFromQueue(item.id)}
+                                            className="p-1.5 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 ml-1"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+  );
+
+  const chatPanelContent = (
+    <div className="h-full pb-16 md:pb-0"> {/* Padding for mobile nav */}
+        {roomId && (
+            <ChatPanel
+                roomId={roomId}
+                username={username}
+                onChangeName={handleChangeName}
+            />
+        )}
+    </div>
   );
 
   return (
@@ -240,194 +443,31 @@ export default function Room({ params }: RoomProps) {
              </div>
         )}
 
-        <PanelGroup direction="horizontal">
-            {/* Music Panel */}
-            <Panel defaultSize={75} minSize={30} className="bg-gray-900/50">
-                <div className="h-full flex flex-col">
-                    {/* Header */}
-                    <div className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900 sticky top-0 z-20 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                            <h1 className="text-xl font-bold tracking-tight text-white">
-                                Phòng: <span className="text-blue-400 font-mono">{roomId}</span>
-                            </h1>
-                            {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
-                                <span className="ml-4 flex items-center gap-1 text-xs text-red-400 bg-red-900/20 px-2 py-1 rounded border border-red-900/50">
-                                    <AlertTriangle size={12} /> Config Error
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowParticipants(true)}
-                                className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700"
-                            >
-                                <Users size={16} />
-                                <span className="hidden sm:inline">Thành viên ({Object.values(participants).filter(p => p.online).length})</span>
-                            </button>
-                            <button
-                                onClick={() => window.location.href = '/'}
-                                className="flex items-center gap-2 bg-gray-800 hover:bg-red-600/90 hover:text-white text-gray-300 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hover:border-red-500"
-                            >
-                                <LogOut size={16} />
-                                <span className="hidden sm:inline">Rời Phòng</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col items-center">
-                        <div className="w-full max-w-5xl space-y-6">
-
-                            {/* Status Bar */}
-                            <div className="flex items-center justify-between text-sm bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700/50">
-                                <div className="flex items-center gap-2 text-gray-400">
-                                    <Info size={16} />
-                                    <span>Trạng thái: {status}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-blue-400 bg-blue-900/20 px-3 py-1 rounded-full text-xs font-medium">
-                                    <Info size={12} />
-                                    Đang đồng bộ
-                                </div>
-                            </div>
-
-                            {!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
-                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
-                                    <div className="text-sm text-red-200">
-                                        <p className="font-bold mb-1">Thiếu cấu hình Firebase</p>
-                                        <p>Vui lòng tạo file <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code> và điền thông tin API Key.</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Video Player */}
-                            <div className="relative group">
-                                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                                <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
-                                    <YouTube
-                                        videoId={playerState.videoId}
-                                        opts={opts}
-                                        onReady={onPlayerReady}
-                                        onStateChange={onPlayerStateChange}
-                                        className="absolute top-0 left-0 w-full h-full"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Host Controls */}
-                            <div className="bg-gray-800/40 p-1 rounded-xl border border-gray-700/50 flex items-center shadow-lg backdrop-blur-sm">
-                                <div className="pl-4 pr-3 text-gray-500">
-                                    <LinkIcon size={20} />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Dán link YouTube tại đây..."
-                                    value={inputUrl}
-                                    onChange={(e) => setInputUrl(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handlePlayNow()}
-                                    className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
-                                />
-                                <div className="flex items-center gap-1 m-1">
-                                    <button
-                                        onClick={handleAddToQueue}
-                                        disabled={isAdding || !inputUrl}
-                                        className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                        title="Thêm vào danh sách chờ"
-                                    >
-                                        <Plus size={16} />
-                                        <span className="hidden md:inline">Thêm</span>
-                                    </button>
-                                    <button
-                                        onClick={handlePlayNow}
-                                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 text-sm"
-                                    >
-                                        <Play size={16} fill="currentColor" />
-                                        <span className="hidden md:inline">Phát ngay</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Queue List */}
-                            <div className="bg-gray-900/40 rounded-xl border border-gray-800 overflow-hidden">
-                                <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-                                    <h3 className="font-bold flex items-center gap-2 text-white">
-                                        <ListMusic size={20} className="text-blue-500" />
-                                        Danh sách phát ({queue.length})
-                                    </h3>
-                                </div>
-                                <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-800/50">
-                                    {queue.length === 0 ? (
-                                        <div className="p-8 text-center text-gray-500">
-                                            <ListMusic size={40} className="mx-auto mb-3 opacity-20" />
-                                            <p>Chưa có bài hát nào trong hàng đợi</p>
-                                        </div>
-                                    ) : (
-                                        queue.map((item, index) => (
-                                            <div key={item.id} className="p-3 hover:bg-gray-800/50 transition-colors flex items-center gap-3 group">
-                                                <div className="text-gray-500 text-sm font-mono w-6 text-center">
-                                                    {index + 1}
-                                                </div>
-                                                <div className="w-16 h-9 bg-gray-800 rounded overflow-hidden shrink-0 relative">
-                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm font-medium text-white truncate" title={item.title}>
-                                                        {item.title}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 truncate">
-                                                        Thêm bởi: {item.addedBy}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => moveItem(item.id, 'up')}
-                                                        disabled={index === 0}
-                                                        className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    >
-                                                        <ChevronUp size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => moveItem(item.id, 'down')}
-                                                        disabled={index === queue.length - 1}
-                                                        className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    >
-                                                        <ChevronDown size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => removeFromQueue(item.id)}
-                                                        className="p-1.5 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 ml-1"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
+        {isMobile ? (
+            <div className="flex-1 w-full flex flex-col overflow-hidden">
+                <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'music' ? 'flex' : 'hidden'}`}>
+                    {musicPanelContent}
                 </div>
-            </Panel>
-
-            <ResizeHandle />
-
-            {/* Chat Panel */}
-            <Panel defaultSize={25} minSize={20} className="bg-gray-900 border-l border-gray-800">
-                <div className="h-full">
-                    {roomId && (
-                        <ChatPanel
-                            roomId={roomId}
-                            username={username}
-                            onChangeName={handleChangeName}
-                        />
-                    )}
+                 <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+                    {chatPanelContent}
                 </div>
-            </Panel>
-        </PanelGroup>
+                <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
+            </div>
+        ) : (
+            <PanelGroup direction="horizontal">
+                {/* Music Panel */}
+                <Panel defaultSize={75} minSize={30} className="bg-gray-900/50">
+                    {musicPanelContent}
+                </Panel>
+
+                <ResizeHandle />
+
+                {/* Chat Panel */}
+                <Panel defaultSize={25} minSize={20} className="bg-gray-900 border-l border-gray-800">
+                    {chatPanelContent}
+                </Panel>
+            </PanelGroup>
+        )}
     </div>
   );
 }
