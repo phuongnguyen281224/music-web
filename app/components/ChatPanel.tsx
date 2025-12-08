@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { roomService } from '@/lib/services/roomService';
 import { onValue } from 'firebase/database';
 import { Send, MessageCircle, Edit2, Settings, Image as ImageIcon, Palette, Trash2, X, Sliders } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Message {
   id: string;
@@ -21,7 +22,11 @@ interface ChatPanelProps {
 export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const initialLoadRef = useRef(true);
+  const lastMessageTimeRef = useRef<number>(0);
 
   // Customization State
   const [bgImage, setBgImage] = useState<string | null>(null);
@@ -37,6 +42,9 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
     if (typeof window !== 'undefined') {
         const savedColor = localStorage.getItem('chat_user_color');
         if (savedColor) setUserColor(savedColor);
+
+        // Initialize audio (short beep)
+        audioRef.current = new Audio('data:audio/wav;base64,UklGRuBXBwBXQVZFZm10IBAAAAABAAEAgLsAAAB3AQACABAAZGF0YVpUBwCx/5T/O/9P/3j/mP90/3b/ZP9G/zL/R/9S/4z/n/+4/7n/tf+d/yH/dv6i/e38avwp/B79KP/zAPcAs//E/tX+Lf+e/7wAEwOKBtwIFQnCBxkI4AksDToPBREREb8N0gWe9TLqouln9IT9H/zg9ZH11PJZ7ozkHds95EXziv8a93/yA/R990f5j/mgCmcdfCMoHL0USxYXFr4LGPVb9B8AIQjG/U/4WQFpCsMAjPMy8QUFrBXBFM0LBA1PEf0SSQRL+mAA1Q2eEpEQZQ3EBxf2G+GZ2ezp0Ph7+sPwmu5F6YXfjMpKwfLNPOpn8pDooujU7if6AP3dB9glAjgwO88uHC/NNF8yrRsnDbYTsR5rFvj8y/M++r76o+4B42ro0gKDDmcHZf8R/7D/UvlE6JrrmfyCC6AMyQroCzMIZ/a95bTuMAYOD4ME7vhP9sXw999jxsbBMNci8GPos+HJ4ebq6PRL+U4PBCl1MKorWCRdK2su9CNVC/4LTRntJm0ZwQoQBq4I+/+f9XDt1/3iEVIXUQ+rB078evHO3uLYieZG9XP8XgG6CMcUcxAu/gbqVOgi7zD41vqU/ef6tfWO7dbZGs9AzSDVgeen+0f+A/Ma9kb6fgdzBZEMKyHENE4/VDiEM8gwvCuNGrwScRiPGeYJN/ed9igAR/gV6j7llvcyDEYHvey739vkYvZ');
     }
   }, []);
 
@@ -83,10 +91,51 @@ export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelP
       } else {
         setMessages([]);
       }
+      setIsDataLoaded(true);
     });
 
     return () => unsubscribe();
   }, [roomId]);
+
+  // Effect to handle notifications when messages change
+  useEffect(() => {
+    if (!isDataLoaded) return;
+
+    if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        if (messages.length > 0) {
+            lastMessageTimeRef.current = messages[messages.length - 1].timestamp;
+        }
+        return;
+    }
+
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+
+    // Check if it's a new message (timestamp is greater than last seen)
+    if (lastMessage.timestamp > lastMessageTimeRef.current) {
+        lastMessageTimeRef.current = lastMessage.timestamp;
+
+        // Check if the message is from another user
+        if (lastMessage.sender !== username) {
+            // Play sound
+            if (audioRef.current) {
+                audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+            }
+
+            // Show toast
+            toast(`${lastMessage.sender}: ${lastMessage.text}`, {
+                icon: '💬',
+                style: {
+                    borderRadius: '10px',
+                    background: '#1f2937',
+                    color: '#fff',
+                },
+            });
+        }
+    }
+  }, [messages, username, isDataLoaded]);
 
   // Auto scroll to bottom
   useEffect(() => {
