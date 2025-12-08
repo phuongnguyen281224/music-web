@@ -444,15 +444,12 @@ export default function Room({ params }: RoomProps) {
         )}
 
         {isMobile ? (
-            <div className="flex-1 w-full flex flex-col overflow-hidden">
-                <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'music' ? 'flex' : 'hidden'}`}>
+            <div className="flex-1 w-full relative overflow-hidden">
+                <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === 'music' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
                     {musicPanelContent}
                 </div>
-                 <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+                 <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === 'chat' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
                     {chatPanelContent}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                    {activeTab === 'music' ? musicPanelContent : chatPanelContent}
                 </div>
                 <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
             </div>
