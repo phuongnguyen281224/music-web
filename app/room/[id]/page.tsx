@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
 import { useRoom } from '@/hooks/useRoom';
 import { usePresence } from '@/hooks/usePresence';
@@ -21,6 +21,11 @@ export default function Room({ params }: RoomProps) {
       serverTimeOffset,
       updatePlayer,
       changeVideo,
+      addToQueue,
+      removeFromQueue,
+      playNext,
+      moveItem,
+      queue,
       isRemoteUpdate
   } = useRoom('', params);
 
@@ -35,6 +40,7 @@ export default function Room({ params }: RoomProps) {
   const [showParticipants, setShowParticipants] = useState(false);
   const [tempName, setTempName] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   // Local Player Refs
   const playerRef = useRef<any>(null);
@@ -86,13 +92,36 @@ export default function Room({ params }: RoomProps) {
   const onPlayerStateChange = (event: any) => {
     if (isRemoteUpdate.current) return;
     const currentTime = event.target.getCurrentTime();
+
+    // Playing
     if (event.data === 1) updatePlayer({ isPlaying: true, timestamp: currentTime });
+    // Paused
     else if (event.data === 2) updatePlayer({ isPlaying: false, timestamp: currentTime });
+    // Ended
+    else if (event.data === 0) {
+        if (queue.length > 0) {
+             playNext();
+        } else {
+             updatePlayer({ isPlaying: false, timestamp: 0 });
+        }
+    }
   };
 
-  const handleLoadVideo = () => {
+  const handlePlayNow = () => {
     if (changeVideo(inputUrl)) setInputUrl('');
     else alert('Link không hợp lệ');
+  };
+
+  const handleAddToQueue = async () => {
+      if (!inputUrl.trim()) return;
+      setIsAdding(true);
+      const success = await addToQueue(inputUrl, username || 'Ẩn danh');
+      setIsAdding(false);
+      if (success) {
+          setInputUrl('');
+      } else {
+          alert('Link không hợp lệ hoặc lỗi kết nối');
+      }
   };
 
   const onPlayerReady = (event: any) => playerRef.current = event.target;
@@ -296,17 +325,89 @@ export default function Room({ params }: RoomProps) {
                                     placeholder="Dán link YouTube tại đây..."
                                     value={inputUrl}
                                     onChange={(e) => setInputUrl(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleLoadVideo()}
+                                    onKeyDown={(e) => e.key === 'Enter' && handlePlayNow()}
                                     className="flex-1 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none focus:ring-0 py-3 text-sm"
                                 />
-                                <button
-                                    onClick={handleLoadVideo}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 m-1 shadow-md hover:shadow-lg active:scale-95"
-                                >
-                                    <Play size={16} fill="currentColor" />
-                                    Phát
-                                </button>
+                                <div className="flex items-center gap-1 m-1">
+                                    <button
+                                        onClick={handleAddToQueue}
+                                        disabled={isAdding || !inputUrl}
+                                        className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                        title="Thêm vào danh sách chờ"
+                                    >
+                                        <Plus size={16} />
+                                        <span className="hidden md:inline">Thêm</span>
+                                    </button>
+                                    <button
+                                        onClick={handlePlayNow}
+                                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 text-sm"
+                                    >
+                                        <Play size={16} fill="currentColor" />
+                                        <span className="hidden md:inline">Phát ngay</span>
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Queue List */}
+                            <div className="bg-gray-900/40 rounded-xl border border-gray-800 overflow-hidden">
+                                <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+                                    <h3 className="font-bold flex items-center gap-2 text-white">
+                                        <ListMusic size={20} className="text-blue-500" />
+                                        Danh sách phát ({queue.length})
+                                    </h3>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-800/50">
+                                    {queue.length === 0 ? (
+                                        <div className="p-8 text-center text-gray-500">
+                                            <ListMusic size={40} className="mx-auto mb-3 opacity-20" />
+                                            <p>Chưa có bài hát nào trong hàng đợi</p>
+                                        </div>
+                                    ) : (
+                                        queue.map((item, index) => (
+                                            <div key={item.id} className="p-3 hover:bg-gray-800/50 transition-colors flex items-center gap-3 group">
+                                                <div className="text-gray-500 text-sm font-mono w-6 text-center">
+                                                    {index + 1}
+                                                </div>
+                                                <div className="w-16 h-9 bg-gray-800 rounded overflow-hidden shrink-0 relative">
+                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium text-white truncate" title={item.title}>
+                                                        {item.title}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 truncate">
+                                                        Thêm bởi: {item.addedBy}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => moveItem(item.id, 'up')}
+                                                        disabled={index === 0}
+                                                        className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    >
+                                                        <ChevronUp size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moveItem(item.id, 'down')}
+                                                        disabled={index === queue.length - 1}
+                                                        className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    >
+                                                        <ChevronDown size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeFromQueue(item.id)}
+                                                        className="p-1.5 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 ml-1"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
