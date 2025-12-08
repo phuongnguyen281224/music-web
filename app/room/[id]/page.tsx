@@ -451,6 +451,9 @@ export default function Room({ params }: RoomProps) {
                  <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
                     {chatPanelContent}
                 </div>
+                <div className="flex-1 overflow-hidden">
+                    {activeTab === 'music' ? musicPanelContent : chatPanelContent}
+                </div>
                 <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
             </div>
         ) : (
