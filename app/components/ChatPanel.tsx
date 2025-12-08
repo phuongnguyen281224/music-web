@@ -6,19 +6,39 @@ import { onValue } from 'firebase/database';
 import { Send, MessageCircle, Edit2, Settings, Image as ImageIcon, Palette, Trash2, X, Sliders } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/**
+ * Represents a chat message.
+ */
 interface Message {
+  /** The unique ID of the message. */
   id: string;
+  /** The name of the sender. */
   sender: string;
+  /** The content of the message. */
   text: string;
+  /** The timestamp when the message was sent. */
   timestamp: number;
 }
 
+/**
+ * Props for the ChatPanel component.
+ */
 interface ChatPanelProps {
+  /** The unique room ID. */
   roomId: string;
+  /** The username of the current user. */
   username: string; // Passed from parent
+  /** Callback function to request a name change (opens modal in parent). */
   onChangeName: () => void; // Request parent to change name
 }
 
+/**
+ * A chat interface component allowing users to send and receive messages in real-time.
+ * Includes features for customization (background image, colors) and notifications.
+ *
+ * @param props - The component props.
+ * @returns The rendered Chat Panel.
+ */
 export default function ChatPanel({ roomId, username, onChangeName }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');

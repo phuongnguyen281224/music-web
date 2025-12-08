@@ -1,6 +1,10 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
 
+/**
+ * Configuration object for Firebase, loaded from environment variables.
+ * Contains keys for authentication, database URL, project ID, etc.
+ */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -11,7 +15,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
+/**
+ * The initialized Firebase Application instance.
+ * Undefined if initialization fails or configuration is missing.
+ */
 let app: FirebaseApp | undefined;
+
+/**
+ * The initialized Firebase Realtime Database instance.
+ * Undefined if initialization fails or configuration is missing.
+ */
 let database: Database | undefined;
 
 try {

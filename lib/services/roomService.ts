@@ -3,72 +3,148 @@ import { database } from '@/lib/firebase';
 
 // -- Types --
 
+/**
+ * Represents the state of the media player.
+ */
 export interface PlayerState {
+    /** The ID of the currently playing video (e.g., YouTube video ID). */
     videoId: string;
+    /** Whether the video is currently playing. */
     isPlaying: boolean;
+    /** The current playback timestamp in seconds. */
     timestamp: number;
+    /** The server timestamp when the state was last updated. */
     updatedAt: number;
 }
 
+/**
+ * Metadata for a room.
+ */
 export interface RoomMetadata {
-    hostId: string; // The localStorage key or ID of the host
+    /** The localStorage key or ID of the host who created the room. */
+    hostId: string;
+    /** The server timestamp when the room was created. */
     createdAt: number;
 }
 
+/**
+ * Represents a participant in the room.
+ */
 export interface Participant {
+    /** The display name of the participant. */
     name: string;
+    /** Whether the participant is currently online. */
     online: boolean;
+    /** The server timestamp of the participant's last activity. */
     lastActive: number;
 }
 
+/**
+ * Global settings for the room, affecting visual appearance.
+ */
 export interface RoomSettings {
+    /** The URL of the background image, or null if none is set. */
     bgImage: string | null;
+    /** The blur intensity for the background image. */
     bgBlur: number;
+    /** The opacity of the overlay on top of the background image. */
     bgOverlay: number;
 }
 
+/**
+ * Represents an item in the playback queue.
+ */
 export interface QueueItem {
+    /** The unique ID of the queue item. */
     id: string;
+    /** The YouTube video ID. */
     videoId: string;
+    /** The title of the video. */
     title: string;
+    /** The URL of the video thumbnail. */
     thumbnail: string;
+    /** The ID of the user who added the video. */
     addedBy: string;
+    /** The server timestamp when the video was added. */
     addedAt: number;
 }
 
 // -- Service --
 
+/**
+ * Service object containing methods for interacting with the Firebase Realtime Database
+ * for room-related operations.
+ */
 export const roomService = {
     // Refs - Return null if DB not init
+    /**
+     * Gets a Firebase DatabaseReference for a specific path.
+     * @param path - The database path.
+     * @returns The DatabaseReference, or null if the database is not initialized.
+     */
     getRef: (path: string) => {
         if (!database) return null;
         return ref(database, path);
     },
 
+    /**
+     * Gets the reference to the player state for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the player state, or null.
+     */
     getPlayerRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/player`);
     },
+    /**
+     * Gets the reference to the queue for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the queue, or null.
+     */
     getQueueRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/queue`);
     },
+    /**
+     * Gets the reference to the messages for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the messages, or null.
+     */
     getMessagesRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/messages`);
     },
+    /**
+     * Gets the reference to the settings for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the settings, or null.
+     */
     getSettingsRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/settings`);
     },
+    /**
+     * Gets the reference to the metadata for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the metadata, or null.
+     */
     getMetaRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/meta`);
     },
+    /**
+     * Gets the reference to the participants list for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the participants, or null.
+     */
     getParticipantsRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/participants`);
     },
+    /**
+     * Gets the reference to the server time offset.
+     * @returns The DatabaseReference for the server time offset, or null.
+     */
     getServerTimeOffsetRef: () => {
         if (!database) return null;
         return ref(database, ".info/serverTimeOffset");
@@ -76,7 +152,11 @@ export const roomService = {
 
     // Actions
 
-    // Initialize a room with default state
+    /**
+     * Initializes a room with default player state if it doesn't already exist.
+     * @param roomId - The unique room ID.
+     * @param defaultVideoId - The default video ID to start with (defaults to 'dQw4w9WgXcQ').
+     */
     initializeRoom: async (roomId: string, defaultVideoId: string = 'dQw4w9WgXcQ') => {
         if (!database) return;
         const playerRef = roomService.getPlayerRef(roomId);
@@ -94,7 +174,12 @@ export const roomService = {
         }
     },
 
-    // Update player state (Host only)
+    /**
+     * Updates the player state for a room.
+     * @param roomId - The unique room ID.
+     * @param updates - A partial object containing the fields to update (videoId, isPlaying, timestamp).
+     * @returns A promise that resolves when the update is complete.
+     */
     updatePlayerState: (roomId: string, updates: Partial<PlayerState>) => {
         if (!database) return;
         const playerRef = roomService.getPlayerRef(roomId);
@@ -105,7 +190,13 @@ export const roomService = {
         });
     },
 
-    // Send a message
+    /**
+     * Sends a chat message to the room.
+     * @param roomId - The unique room ID.
+     * @param sender - The name or ID of the sender.
+     * @param text - The content of the message.
+     * @returns A promise that resolves when the message is sent.
+     */
     sendMessage: (roomId: string, sender: string, text: string) => {
         if (!database) return;
         const messagesRef = roomService.getMessagesRef(roomId);
@@ -117,7 +208,12 @@ export const roomService = {
         });
     },
 
-    // Update settings
+    /**
+     * Updates the room settings (background, etc.).
+     * @param roomId - The unique room ID.
+     * @param settings - A partial object containing the settings to update.
+     * @returns A promise that resolves when the settings are updated.
+     */
     updateSettings: (roomId: string, settings: Partial<RoomSettings>) => {
         if (!database) return;
         const settingsRef = roomService.getSettingsRef(roomId);
@@ -126,6 +222,12 @@ export const roomService = {
     },
 
     // Queue Logic
+    /**
+     * Adds an item to the playback queue.
+     * @param roomId - The unique room ID.
+     * @param item - The queue item to add (excluding the ID, which is generated).
+     * @returns A promise that resolves when the item is added.
+     */
     addToQueue: (roomId: string, item: Omit<QueueItem, 'id'>) => {
         if (!database) return;
         const queueRef = roomService.getQueueRef(roomId);
@@ -133,12 +235,24 @@ export const roomService = {
         return push(queueRef, item);
     },
 
+    /**
+     * Removes an item from the playback queue.
+     * @param roomId - The unique room ID.
+     * @param itemId - The ID of the item to remove.
+     * @returns A promise that resolves when the item is removed.
+     */
     removeFromQueue: (roomId: string, itemId: string) => {
         if (!database) return;
         const itemRef = ref(database, `rooms/${roomId}/queue/${itemId}`);
         return set(itemRef, null);
     },
 
+    /**
+     * Replaces the entire queue with a new list of items.
+     * @param roomId - The unique room ID.
+     * @param queue - The array of QueueItem objects to set.
+     * @returns A promise that resolves when the queue is updated.
+     */
     setQueue: (roomId: string, queue: QueueItem[]) => {
         if (!database) return;
         const queueRef = roomService.getQueueRef(roomId);
@@ -161,6 +275,13 @@ export const roomService = {
     },
 
     // Participant Logic
+    /**
+     * Registers a participant in the room and handles their online status.
+     * Sets up an `onDisconnect` handler to mark the user as offline when they disconnect.
+     * @param roomId - The unique room ID.
+     * @param userId - The unique user ID.
+     * @param name - The user's display name.
+     */
     registerParticipant: (roomId: string, userId: string, name: string) => {
         if (!database) return;
         const userRef = ref(database, `rooms/${roomId}/participants/${userId}`);
@@ -180,6 +301,12 @@ export const roomService = {
     },
 
     // Listeners (returning unsubscribe function)
+    /**
+     * Listens for changes to the player state.
+     * @param roomId - The unique room ID.
+     * @param callback - A function to call when the player state changes.
+     * @returns A function to unsubscribe from the listener.
+     */
     onPlayerStateChange: (roomId: string, callback: (data: PlayerState | null) => void) => {
         if (!database) return () => {};
         const playerRef = roomService.getPlayerRef(roomId);
@@ -193,6 +320,11 @@ export const roomService = {
         return unsubscribe; // Return the unsubscribe function directly
     },
 
+    /**
+     * Listens for changes to the server time offset.
+     * @param callback - A function to call when the offset changes.
+     * @returns A function to unsubscribe from the listener.
+     */
     onServerTimeOffsetChange: (callback: (offset: number) => void) => {
         if (!database) return () => {};
         const offsetRef = roomService.getServerTimeOffsetRef();

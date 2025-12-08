@@ -1,11 +1,24 @@
 import { Music, MessageCircle } from 'lucide-react';
 
+/**
+ * Props for the MobileNav component.
+ */
 interface MobileNavProps {
+  /** The currently active tab ('music' or 'chat'). */
   activeTab: 'music' | 'chat';
+  /** Callback function to set the active tab. */
   setActiveTab: (tab: 'music' | 'chat') => void;
+  /** The number of unread messages to display as a badge on the chat icon. Defaults to 0. */
   unreadCount?: number;
 }
 
+/**
+ * A bottom navigation bar component for mobile devices.
+ * Allows switching between the Music and Chat views.
+ *
+ * @param props - The component props.
+ * @returns The rendered navigation bar.
+ */
 export default function MobileNav({ activeTab, setActiveTab, unreadCount = 0 }: MobileNavProps) {
   return (
     <div className="md:hidden h-16 bg-gray-900 border-t border-gray-800 flex fixed bottom-0 left-0 w-full z-30">
