@@ -29,8 +29,9 @@ export interface UseRoomResult {
     /**
      * Changes the current video.
      * @param url - The YouTube URL or ID.
+     * @returns True if the URL was valid and the video was changed, false otherwise.
      */
-    changeVideo: (url: string) => void;
+    changeVideo: (url: string) => boolean;
     /**
      * Adds a video to the queue.
      * @param url - The YouTube URL.
