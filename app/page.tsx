@@ -3,10 +3,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * The landing page component.
+ * Allows users to create a new music room or join an existing one.
+ *
+ * @returns The rendered Home page.
+ */
 export default function Home() {
   const router = useRouter();
   const [roomId, setRoomId] = useState('');
 
+  /**
+   * Creates a new room with a random 6-character ID, sets the current user as the host
+   * in localStorage, and navigates to the room page.
+   */
   const createRoom = () => {
     // Generate a short ID
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -17,6 +27,9 @@ export default function Home() {
     router.push(`/room/${id}`);
   };
 
+  /**
+   * Navigates to the room page using the ID entered in the input field.
+   */
   const joinRoom = () => {
     if (!roomId.trim()) return;
     router.push(`/room/${roomId.toUpperCase()}`);

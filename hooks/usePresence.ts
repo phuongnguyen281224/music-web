@@ -2,19 +2,38 @@ import { useState, useEffect, useCallback } from 'react';
 import { roomService, Participant } from '@/lib/services/roomService';
 import { onValue, off } from 'firebase/database';
 
+/**
+ * Result object returned by the `usePresence` hook.
+ */
 export interface UsePresenceResult {
+    /** The unique ID of the current user. */
     userId: string;
+    /** The display name of the current user. */
     username: string;
+    /** A record of participants currently in the room, keyed by user ID. */
     participants: Record<string, Participant>;
+    /** Function to set the user's display name. */
     setUserName: (name: string) => void;
+    /** Boolean indicating if the user has set their display name. */
     isNameSet: boolean;
 }
 
-// Simple random ID generator
+/**
+ * Generates a simple random ID string.
+ *
+ * @returns A random alphanumeric string.
+ */
 const generateUserId = () => {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
+/**
+ * Custom hook to manage user presence and participants in a room.
+ * Handles user identity (ID and name) persistence and synchronization with Firebase.
+ *
+ * @param roomId - The ID of the room to track presence for.
+ * @returns An object containing user identity, participant list, and methods to update identity.
+ */
 export function usePresence(roomId: string): UsePresenceResult {
     const [userId, setUserId] = useState<string>('');
     const [username, setUsername] = useState<string>('');

@@ -9,11 +9,23 @@ import MobileNav from '@/app/components/MobileNav';
 import { useRoom } from '@/hooks/useRoom';
 import { usePresence } from '@/hooks/usePresence';
 import { searchYouTube, YouTubeVideo } from '@/lib/youtube';
+import Image from 'next/image';
 
+/**
+ * Props for the Room component.
+ */
 interface RoomProps {
+  /** Promise resolving to route parameters, containing the room ID. */
   params: Promise<{ id: string }>;
 }
 
+/**
+ * The main Room component containing the music player, queue, and chat.
+ * Handles synchronization, user presence, and layout adaptation (desktop/mobile).
+ *
+ * @param props - The component props.
+ * @returns The rendered Room page.
+ */
 export default function Room({ params }: RoomProps) {
   const {
       roomId,
@@ -89,7 +101,8 @@ export default function Room({ params }: RoomProps) {
           }
       }
       setTimeout(() => { isRemoteUpdate.current = false; }, 500);
-  }, [playerState, serverTimeOffset, roomId]);
+      // Added isRemoteUpdate to dependency array to satisfy linter
+  }, [playerState, serverTimeOffset, roomId, isRemoteUpdate]);
 
   // Initial Name Modal Check
   useEffect(() => {
@@ -358,7 +371,7 @@ export default function Room({ params }: RoomProps) {
                                         {index + 1}
                                     </div>
                                     <div className="w-16 h-9 bg-gray-800 rounded overflow-hidden shrink-0 relative">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -446,6 +459,8 @@ export default function Room({ params }: RoomProps) {
                             searchResults.map((video) => (
                                 <div key={video.id} className="flex gap-4 p-3 hover:bg-gray-800/50 rounded-xl transition-all group border border-transparent hover:border-gray-700/50">
                                     <div className="w-32 aspect-video bg-gray-800 rounded-lg overflow-hidden shrink-0 relative shadow-sm">
+                                        {/* Fixed: Use next/image or disable lint for this line. Used <img> with lint disable comment for remote image simplicity without whitelisting domains */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                     </div>
                                     <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">

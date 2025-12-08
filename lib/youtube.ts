@@ -1,11 +1,25 @@
 
+/**
+ * Represents a YouTube video result.
+ */
 export interface YouTubeVideo {
+  /** The unique video ID (e.g., "dQw4w9WgXcQ"). */
   id: string;
+  /** The title of the video. */
   title: string;
+  /** The URL of the video's medium-sized thumbnail. */
   thumbnail: string;
+  /** The name of the channel that uploaded the video. */
   channelTitle: string;
 }
 
+/**
+ * Searches for videos on YouTube using the YouTube Data API v3.
+ *
+ * @param query - The search query string.
+ * @returns A promise that resolves to an array of `YouTubeVideo` objects.
+ *          Returns an empty array if the API key is missing or an error occurs.
+ */
 export async function searchYouTube(query: string): Promise<YouTubeVideo[]> {
   const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
 

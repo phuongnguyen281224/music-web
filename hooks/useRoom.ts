@@ -2,24 +2,60 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { roomService, PlayerState, QueueItem } from '@/lib/services/roomService';
 import { onValue } from 'firebase/database';
 
+/**
+ * Result object returned by the `useRoom` hook.
+ */
 export interface UseRoomResult {
     // State
+    /** The unique room ID. */
     roomId: string;
+    /** Boolean indicating if the current user is the host. */
     isHost: boolean;
+    /** The current connection status string. */
     status: string;
+    /** The current state of the media player. */
     playerState: PlayerState;
+    /** The calculated offset between client and server time. */
     serverTimeOffset: number;
+    /** The list of items in the playback queue. */
     queue: QueueItem[];
 
     // Actions
+    /**
+     * Updates the player state.
+     * @param updates - Partial player state to update.
+     */
     updatePlayer: (updates: Partial<PlayerState>) => void;
+    /**
+     * Changes the current video.
+     * @param url - The YouTube URL or ID.
+     */
     changeVideo: (url: string) => void;
+    /**
+     * Adds a video to the queue.
+     * @param url - The YouTube URL.
+     * @param addedBy - The user ID adding the video.
+     * @returns A promise resolving to true if successful, false otherwise.
+     */
     addToQueue: (url: string, addedBy: string) => Promise<boolean>;
+    /**
+     * Removes an item from the queue.
+     * @param itemId - The unique ID of the queue item.
+     */
     removeFromQueue: (itemId: string) => void;
+    /**
+     * Plays the next video in the queue and removes it.
+     */
     playNext: () => void;
+    /**
+     * Moves a queue item up or down.
+     * @param itemId - The unique ID of the item to move.
+     * @param direction - 'up' or 'down'.
+     */
     moveItem: (itemId: string, direction: 'up' | 'down') => void;
 
     // Utils
+    /** Ref indicating if the current update is from a remote source. */
     isRemoteUpdate: React.MutableRefObject<boolean>;
 }
 
@@ -30,8 +66,14 @@ const DEFAULT_PLAYER_STATE: PlayerState = {
     updatedAt: 0
 };
 
-// paramsId can be string, Promise<{id}>, or just {id} object depending on Next.js version quirks
-export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | string | { id: string } | any) {
+/**
+ * Custom hook to manage room logic, including player state, queue, and host status.
+ *
+ * @param roomId - The potential room ID string.
+ * @param paramsId - The route parameters which might contain the room ID (Next.js quirk handling).
+ * @returns The `UseRoomResult` object containing state and actions.
+ */
+export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | string | { id: string } | any): UseRoomResult {
     const [id, setId] = useState<string>('');
     const [isHost, setIsHost] = useState<boolean>(false);
     const [status, setStatus] = useState<string>('Đang kết nối...');
@@ -117,65 +159,11 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         const unsub = onValue(queueRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // Convert object to array and sort?
-                // Since we use push, keys are chronological.
-                // But playNext/reorder might mess with that if we manually set keys.
-                // Let's rely on client-side array from object entries for now,
-                // but if we reorder, we overwrite.
-
                 // Strategy: Just map entries to array.
                 const list = Object.entries(data).map(([key, value]: [string, any]) => ({
                     id: key,
                     ...value
                 }));
-                // If we want to preserve order from a reorder, we might need an 'index' field.
-                // But for now, let's assume the push keys order is fine OR the order they come back from Firebase.
-                // Firebase returns keys in order if they are push IDs.
-                // If we did a full replace with custom keys, order might be weird unless we handle it.
-                // Simplest 'Sort' feature: Client-side logic for now.
-                // Wait, if I use `setQueue`, I'm replacing the object.
-                // If I use `push`, it appends.
-                // The Reorder Logic in roomService uses `set(queueRef, updates)`.
-                // If I just dump the array back as an object, the keys are still the original keys.
-                // Firebase sorts by keys.
-                // If I want to reorder, I MUST change the keys OR add an 'order' field.
-                // Changing keys is hard (delete and add).
-                // Adding 'order' field is robust.
-                // Let's stick to a simpler approach:
-                // Since this is a small personal app, `queue` will be an array on the client.
-                // The `reorder` function will delete the old queue and write the new one as a list?
-                // No, that's destructive.
-                // Let's just trust that the user won't race-condition reorder too much.
-                // AND since I implemented `setQueue` to take an array but write an object...
-                // Wait, my `setQueue` implementation: `updates[item.id] = item`.
-                // This preserves the keys. So the order in Firebase (sorted by key) WON'T change.
-                // THIS IS A BUG in my mental model.
-                // FIX: To reorder in Firebase without an 'order' field, you have to delete and re-add or use 'order' field.
-                // OR, keep it simple: `queue` in Firebase is just a list of items.
-                // BUT I implemented it as an object (via `push`).
-
-                // REVISED STRATEGY for Reorder:
-                // We will just use `setQueue` but we need to ensure the keys sort the way we want.
-                // Actually, I can't easily change the sort order of existing keys.
-                // So I will just add `addedAt` timestamp and sort by that? No, user wants to reorder manually.
-
-                // OK, I will add an `order` field to `QueueItem` implicitly here?
-                // No, let's just make the client sort by `order` if it exists, or `addedAt`.
-                // For MVP: I will NOT implement complex reordering (drag and drop) that persists perfectly without an 'order' field.
-                // I will implement "Move Up/Down" which essentially swaps the CONTENT of the nodes?
-                // Or better: Just Delete and Re-Add everything? (Risky).
-
-                // ALTERNATIVE: Use a simple numeric priority field `order` initialized to `Date.now()`.
-                // When moving up, swap `order` values with the neighbor.
-                // Yes. That's better.
-
-                // Update: I'll accept the list as is from Firebase (sorted by key usually)
-                // and if I really want to reorder, I might have to be creative.
-                // Given the constraints, I will implement "Add to Queue" first.
-                // "Sort" might be just client-side for the current user? No, must sync.
-                // Let's try to swap the *values* of the two nodes in Firebase?
-                // Yes, `moveItem` will swap the data at `id1` and `id2`.
-
                 setQueue(list);
             } else {
                 setQueue([]);
@@ -264,41 +252,7 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         const { id: idA, ...dataA } = itemA;
         const { id: idB, ...dataB } = itemB;
 
-        const updates: any = {};
-        updates[`rooms/${id}/queue/${idA}`] = { ...dataB };
-        updates[`rooms/${id}/queue/${idB}`] = { ...dataA };
-
-        // Use root ref update to be atomic?
-        // roomService doesn't expose root update directly but we can use `update(ref(db), updates)`
-        // Ideally we add a method in roomService for this, but for now let's just do individual updates
-        // or add a specific method.
-        // Let's add `swapQueueItems` to roomService?
-        // I can't edit roomService again without another tool call.
-        // I'll just delete and re-add in the new order? No.
-
-        // Hack: Just update both separately. Race condition possible but rare.
-        // Actually, `roomService.getQueueRef` returns a ref.
-        // I can import `update` and `ref` in this file? No, better to keep abstraction.
-        // I will use `roomService.setQueue` but that writes the WHOLE queue.
-        // If I modify the local `queue` array (swap items) and send it to `setQueue`:
-        // My `setQueue` implementation: `updates[item.id] = item`.
-        // If I swap the array order locally: `[B, A]`.
-        // `setQueue` writes `updates[B.id] = B`, `updates[A.id] = A`.
-        // The keys are still `A.id` and `B.id`.
-        // Firebase sorts by key. So `A.id` comes before `B.id`.
-        // So `A` (which is now `B`'s content? No).
-
-        // Wait. `setQueue` takes `QueueItem[]`.
-        // If I pass `[itemB, itemA]`.
-        // `itemB` has `idB`. `itemA` has `idA`.
-        // `updates[idB] = itemB`. `updates[idA] = itemA`.
-        // Firebase sees: `idA: itemA`, `idB: itemB`.
-        // Result: No change in order.
-
-        // Conclusion: To reorder, I MUST swap the CONTENT between the keys.
-        // So: `itemA` gets `dataB`, `itemB` gets `dataA`.
-        // Then `setQueue` with modified items (ID kept, data swapped).
-
+        // Note: This works because we are swapping content between two stable IDs.
         const newItemA = { ...itemA, ...dataB, id: itemA.id }; // ID A, Content B
         const newItemB = { ...itemB, ...dataA, id: itemB.id }; // ID B, Content A
 
@@ -306,8 +260,6 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         newQueue[index] = newItemA;
         newQueue[targetIndex] = newItemB;
 
-        // We only need to update these two.
-        // But `setQueue` updates all. It's fine for small lists.
         roomService.setQueue(id, newQueue);
 
     }, [id, queue]);
@@ -329,7 +281,12 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
     };
 }
 
-// Helper
+/**
+ * Helper function to extract the YouTube video ID from a URL.
+ *
+ * @param url - The YouTube URL.
+ * @returns The video ID string or null if not found.
+ */
 const extractVideoId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
