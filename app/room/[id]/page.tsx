@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown, Search, Loader2 } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
 import MobileNav from '@/app/components/MobileNav';
 import { useRoom } from '@/hooks/useRoom';
 import { usePresence } from '@/hooks/usePresence';
+import { searchYouTube, YouTubeVideo } from '@/lib/youtube';
 
 interface RoomProps {
   params: Promise<{ id: string }>;
@@ -42,6 +43,12 @@ export default function Room({ params }: RoomProps) {
   const [tempName, setTempName] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<YouTubeVideo[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Responsive & Mobile State
   const [activeTab, setActiveTab] = useState<'music' | 'chat'>('music');
@@ -125,15 +132,37 @@ export default function Room({ params }: RoomProps) {
     else alert('Link không hợp lệ');
   };
 
-  const handleAddToQueue = async () => {
-      if (!inputUrl.trim()) return;
+  const handleAddToQueue = async (url: string = inputUrl) => {
+      if (!url.trim()) return;
       setIsAdding(true);
-      const success = await addToQueue(inputUrl, username || 'Ẩn danh');
+      const success = await addToQueue(url, username || 'Ẩn danh');
       setIsAdding(false);
       if (success) {
-          setInputUrl('');
+          if (url === inputUrl) setInputUrl('');
       } else {
           alert('Link không hợp lệ hoặc lỗi kết nối');
+      }
+  };
+
+  const handleSearch = async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!searchQuery.trim()) return;
+
+      setIsSearching(true);
+      setShowSearchModal(true);
+      const results = await searchYouTube(searchQuery);
+      setSearchResults(results);
+      setIsSearching(false);
+  };
+
+  const handleSearchResultClick = (video: YouTubeVideo, action: 'play' | 'queue') => {
+      const url = `https://www.youtube.com/watch?v=${video.id}`;
+      if (action === 'play') {
+          changeVideo(url);
+          setShowSearchModal(false);
+      } else {
+          handleAddToQueue(url);
+          setShowSearchModal(false);
       }
   };
 
@@ -208,6 +237,27 @@ export default function Room({ params }: RoomProps) {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center">
             <div className="w-full max-w-5xl space-y-6 pb-20 md:pb-0"> {/* Padding bottom for mobile nav */}
 
+                {/* Search Bar */}
+                <form onSubmit={handleSearch} className="relative group z-10">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                        <Search size={18} />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm bài hát trên YouTube..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-gray-800/50 border border-gray-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 placeholder-gray-500 transition-all shadow-sm"
+                    />
+                    <button
+                        type="submit"
+                        disabled={!searchQuery.trim() || isSearching}
+                        className="absolute right-2 top-2 bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isSearching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                    </button>
+                </form>
+
                 {/* Status Bar */}
                 <div className="flex items-center justify-between text-sm bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700/50">
                     <div className="flex items-center gap-2 text-gray-400">
@@ -226,6 +276,16 @@ export default function Room({ params }: RoomProps) {
                         <div className="text-sm text-red-200">
                             <p className="font-bold mb-1">Thiếu cấu hình Firebase</p>
                             <p>Vui lòng tạo file <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code> và điền thông tin API Key.</p>
+                        </div>
+                    </div>
+                )}
+
+                {!process.env.NEXT_PUBLIC_YOUTUBE_API_KEY && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-start gap-3">
+                        <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={20} />
+                        <div className="text-sm text-yellow-200">
+                            <p className="font-bold mb-1">Thiếu cấu hình YouTube</p>
+                            <p>Chức năng tìm kiếm sẽ không hoạt động. Vui lòng thêm <code className="bg-black/30 px-1 py-0.5 rounded">NEXT_PUBLIC_YOUTUBE_API_KEY</code> vào file <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code>.</p>
                         </div>
                     </div>
                 )}
@@ -259,7 +319,7 @@ export default function Room({ params }: RoomProps) {
                     />
                     <div className="flex items-center gap-1 m-1">
                         <button
-                            onClick={handleAddToQueue}
+                            onClick={() => handleAddToQueue(inputUrl)}
                             disabled={isAdding || !inputUrl}
                             className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2.5 md:px-4 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                             title="Thêm vào danh sách chờ"
@@ -356,6 +416,72 @@ export default function Room({ params }: RoomProps) {
 
   return (
     <div className="flex h-dvh w-full bg-gray-950 text-white overflow-hidden relative">
+
+        {/* Search Results Modal */}
+        {showSearchModal && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowSearchModal(false)}>
+                <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-800">
+                        <h3 className="font-bold text-xl flex items-center gap-2 text-white">
+                            <Search size={24} className="text-blue-500"/>
+                            Kết quả tìm kiếm
+                        </h3>
+                        <button onClick={() => setShowSearchModal(false)} className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-lg transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2">
+                        {isSearching ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                                <Loader2 size={40} className="animate-spin mb-4 text-blue-500" />
+                                <p>Đang tìm kiếm...</p>
+                            </div>
+                        ) : searchResults.length === 0 ? (
+                            <div className="text-center text-gray-500 py-12">
+                                <Search size={40} className="mx-auto mb-3 opacity-20" />
+                                <p>Không tìm thấy kết quả nào</p>
+                            </div>
+                        ) : (
+                            searchResults.map((video) => (
+                                <div key={video.id} className="flex gap-4 p-3 hover:bg-gray-800/50 rounded-xl transition-all group border border-transparent hover:border-gray-700/50">
+                                    <div className="w-32 aspect-video bg-gray-800 rounded-lg overflow-hidden shrink-0 relative shadow-sm">
+                                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                        <div>
+                                            <h4 className="font-medium text-white line-clamp-2 leading-snug mb-1" title={video.title}>
+                                                {video.title}
+                                            </h4>
+                                            <p className="text-xs text-gray-400 flex items-center gap-1">
+                                                <User size={12} />
+                                                {video.channelTitle}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <button
+                                                onClick={() => handleSearchResultClick(video, 'play')}
+                                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                                            >
+                                                <Play size={14} fill="currentColor" /> Phát ngay
+                                            </button>
+                                            <button
+                                                onClick={() => handleSearchResultClick(video, 'queue')}
+                                                disabled={isAdding}
+                                                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isAdding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                                <span className="truncate">Thêm vào hàng đợi</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Name Modal */}
         {showNameModal && (
