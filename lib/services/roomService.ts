@@ -27,6 +27,15 @@ export interface RoomSettings {
     bgOverlay: number;
 }
 
+export interface QueueItem {
+    id: string;
+    videoId: string;
+    title: string;
+    thumbnail: string;
+    addedBy: string;
+    addedAt: number;
+}
+
 // -- Service --
 
 export const roomService = {
@@ -39,6 +48,10 @@ export const roomService = {
     getPlayerRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/player`);
+    },
+    getQueueRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/queue`);
     },
     getMessagesRef: (roomId: string) => {
         if (!database) return null;
@@ -110,6 +123,41 @@ export const roomService = {
         const settingsRef = roomService.getSettingsRef(roomId);
         if (!settingsRef) return;
         return update(settingsRef, settings);
+    },
+
+    // Queue Logic
+    addToQueue: (roomId: string, item: Omit<QueueItem, 'id'>) => {
+        if (!database) return;
+        const queueRef = roomService.getQueueRef(roomId);
+        if (!queueRef) return;
+        return push(queueRef, item);
+    },
+
+    removeFromQueue: (roomId: string, itemId: string) => {
+        if (!database) return;
+        const itemRef = ref(database, `rooms/${roomId}/queue/${itemId}`);
+        return set(itemRef, null);
+    },
+
+    setQueue: (roomId: string, queue: QueueItem[]) => {
+        if (!database) return;
+        const queueRef = roomService.getQueueRef(roomId);
+        if (!queueRef) return;
+        // Convert array back to object or just set it.
+        // Firebase handles arrays with integer keys, but here we want to replace the whole node.
+        // If we want to support reordering, writing the whole object is easiest.
+        // However, we need to be careful about the structure.
+        // Best to write as an object where keys are IDs.
+        // But for reordering, an array is easier to manage in UI, but Firebase prefers objects.
+        // Let's assume we pass an array, and we write it as an object using the existing IDs or generating new ones?
+        // Actually, if we just want to reorder, we can't easily use existing IDs if they are push IDs (timestamp based).
+        // Strategy: Write the whole queue as a new object, or use a separate "order" field?
+        // Simplest: Replace the whole queue node with the new list (keyed by their IDs).
+        const updates: Record<string, any> = {};
+        queue.forEach(item => {
+            updates[item.id] = item;
+        });
+        return set(queueRef, updates);
     },
 
     // Participant Logic
