@@ -155,7 +155,11 @@ export default function Room({ params }: RoomProps) {
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
-    playerVars: { autoplay: 1, controls: 1 },
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      playsinline: 1
+    },
   };
 
   const ResizeHandle = () => (
@@ -441,6 +445,12 @@ export default function Room({ params }: RoomProps) {
 
         {isMobile ? (
             <div className="flex-1 w-full flex flex-col overflow-hidden">
+                <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'music' ? 'flex' : 'hidden'}`}>
+                    {musicPanelContent}
+                </div>
+                 <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+                    {chatPanelContent}
+                </div>
                 <div className="flex-1 overflow-hidden">
                     {activeTab === 'music' ? musicPanelContent : chatPanelContent}
                 </div>
