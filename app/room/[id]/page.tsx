@@ -69,6 +69,34 @@ export default function Room({ params }: RoomProps) {
 
   // Local Player Refs
   const playerRef = useRef<any>(null);
+  const isProcessingEnd = useRef(false);
+
+  // Reset processing flag when video changes
+  useEffect(() => {
+      isProcessingEnd.current = false;
+  }, [playerState.videoId]);
+
+  // Watchdog for background tab throttling issues
+  useEffect(() => {
+      const interval = setInterval(() => {
+          if (!playerRef.current) return;
+          try {
+              const state = playerRef.current.getPlayerState();
+              if (state === 0 && !isProcessingEnd.current) {
+                  console.log("Watchdog detected ENDED state, forcing next.");
+                  isProcessingEnd.current = true;
+                  if (queue.length > 0) {
+                      playNext();
+                  } else {
+                      updatePlayer({ isPlaying: false, timestamp: 0 });
+                  }
+              }
+          } catch (e) {
+              // Ignore errors if player is not ready
+          }
+      }, 1000);
+      return () => clearInterval(interval);
+  }, [queue, playNext, updatePlayer]);
 
   // Sync Video Logic
   useEffect(() => {
@@ -133,10 +161,13 @@ export default function Room({ params }: RoomProps) {
     else if (event.data === 2) updatePlayer({ isPlaying: false, timestamp: currentTime });
     // Ended
     else if (event.data === 0) {
-        if (queue.length > 0) {
-             playNext();
-        } else {
-             updatePlayer({ isPlaying: false, timestamp: 0 });
+        if (!isProcessingEnd.current) {
+            isProcessingEnd.current = true;
+            if (queue.length > 0) {
+                playNext();
+            } else {
+                updatePlayer({ isPlaying: false, timestamp: 0 });
+            }
         }
     }
   };
