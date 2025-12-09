@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown, Search, Loader2 } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown, Search, Loader2, History } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
 import MobileNav from '@/app/components/MobileNav';
 import { useRoom } from '@/hooks/useRoom';
@@ -40,6 +40,7 @@ export default function Room({ params }: RoomProps) {
       playNext,
       moveItem,
       queue,
+      history,
       isRemoteUpdate
   } = useRoom('', params);
 
@@ -140,8 +141,8 @@ export default function Room({ params }: RoomProps) {
     }
   };
 
-  const handlePlayNow = () => {
-    if (changeVideo(inputUrl)) setInputUrl('');
+  const handlePlayNow = async () => {
+    if (await changeVideo(inputUrl)) setInputUrl('');
     else alert('Link không hợp lệ');
   };
 
@@ -171,7 +172,11 @@ export default function Room({ params }: RoomProps) {
   const handleSearchResultClick = (video: YouTubeVideo, action: 'play' | 'queue') => {
       const url = `https://www.youtube.com/watch?v=${video.id}`;
       if (action === 'play') {
-          changeVideo(url);
+          changeVideo(url, {
+              title: video.title,
+              thumbnail: video.thumbnail,
+              addedBy: username
+          });
           setShowSearchModal(false);
       } else {
           handleAddToQueue(url);
@@ -402,6 +407,60 @@ export default function Room({ params }: RoomProps) {
                                             className="p-1.5 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 ml-1"
                                         >
                                             <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* History List */}
+                <div className="bg-gray-900/20 rounded-xl border border-gray-800 overflow-hidden">
+                    <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/40">
+                        <h3 className="font-bold flex items-center gap-2 text-gray-400">
+                            <History size={20} className="text-gray-500" />
+                            Lịch sử phát gần đây
+                        </h3>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto divide-y divide-gray-800/30">
+                        {history.length === 0 ? (
+                            <div className="p-6 text-center text-gray-600 text-sm">
+                                <p>Chưa có lịch sử phát</p>
+                            </div>
+                        ) : (
+                            history.map((item) => (
+                                <div key={item.id} className="p-3 hover:bg-gray-800/30 transition-colors flex items-center gap-3 group opacity-70 hover:opacity-100">
+                                    <div className="w-16 h-9 bg-gray-800 rounded overflow-hidden shrink-0 relative grayscale group-hover:grayscale-0 transition-all">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-gray-300 truncate" title={item.title}>
+                                            {item.title}
+                                        </div>
+                                        <div className="text-xs text-gray-600 truncate">
+                                            Nghe lúc: {new Date(item.playedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => changeVideo(`https://www.youtube.com/watch?v=${item.videoId}`, {
+                                                title: item.title,
+                                                thumbnail: item.thumbnail,
+                                                addedBy: username
+                                            })}
+                                            className="p-1.5 hover:bg-blue-600 rounded text-gray-400 hover:text-white"
+                                            title="Phát lại"
+                                        >
+                                            <Play size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleAddToQueue(`https://www.youtube.com/watch?v=${item.videoId}`)}
+                                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
+                                            title="Thêm vào hàng đợi"
+                                        >
+                                            <Plus size={14} />
                                         </button>
                                     </div>
                                 </div>
