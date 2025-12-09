@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { roomService, PlayerState, QueueItem } from '@/lib/services/roomService';
+import { roomService, PlayerState, QueueItem, HistoryItem } from '@/lib/services/roomService';
 import { onValue } from 'firebase/database';
 
 /**
@@ -19,6 +19,8 @@ export interface UseRoomResult {
     serverTimeOffset: number;
     /** The list of items in the playback queue. */
     queue: QueueItem[];
+    /** The list of items in the history. */
+    history: HistoryItem[];
 
     // Actions
     /**
@@ -29,9 +31,10 @@ export interface UseRoomResult {
     /**
      * Changes the current video.
      * @param url - The YouTube URL or ID.
+     * @param metadata - Optional metadata (title, thumbnail) to update.
      * @returns True if the URL was valid and the video was changed, false otherwise.
      */
-    changeVideo: (url: string) => boolean;
+    changeVideo: (url: string, metadata?: { title: string, thumbnail: string, addedBy?: string }) => Promise<boolean>;
     /**
      * Adds a video to the queue.
      * @param url - The YouTube URL.
@@ -81,6 +84,7 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
     const [playerState, setPlayerState] = useState<PlayerState>(DEFAULT_PLAYER_STATE);
     const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
     const [queue, setQueue] = useState<QueueItem[]>([]);
+    const [history, setHistory] = useState<HistoryItem[]>([]);
 
     const isRemoteUpdate = useRef(false);
 
@@ -173,24 +177,84 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         return () => unsub();
     }, [id]);
 
+    // Subscribe to History
+    useEffect(() => {
+        if (!id) return;
+        const historyRef = roomService.getHistoryRef(id);
+        if (!historyRef) return;
+
+        const unsub = onValue(historyRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const list = Object.entries(data).map(([key, value]: [string, any]) => ({
+                    id: key,
+                    ...value
+                })).sort((a, b) => b.playedAt - a.playedAt); // Newest first
+                setHistory(list);
+            } else {
+                setHistory([]);
+            }
+        });
+        return () => unsub();
+    }, [id]);
+
+    // Helper: Add current song to history
+    const saveCurrentToHistory = useCallback(() => {
+        if (!id || !playerState || !playerState.videoId) return;
+
+        // Only add if we have some metadata or if it's a valid ID
+        if (playerState.videoId === DEFAULT_PLAYER_STATE.videoId) return;
+
+        const item = {
+            videoId: playerState.videoId,
+            title: playerState.title || 'Video không tên',
+            thumbnail: playerState.thumbnail || `https://img.youtube.com/vi/${playerState.videoId}/mqdefault.jpg`,
+            addedBy: playerState.addedBy || 'Ẩn danh',
+            playedAt: Date.now()
+        };
+
+        roomService.addToHistory(id, item);
+    }, [id, playerState]);
+
     // Actions
     const updatePlayer = useCallback((updates: Partial<PlayerState>) => {
         if (!id) return;
         roomService.updatePlayerState(id, updates);
     }, [id]);
 
-    const changeVideo = useCallback((url: string) => {
+    const changeVideo = useCallback(async (url: string, metadata?: { title: string, thumbnail: string, addedBy?: string }) => {
         const videoId = extractVideoId(url);
         if (videoId) {
+            // Save previous song to history
+            saveCurrentToHistory();
+
+            let title = metadata?.title;
+            let thumbnail = metadata?.thumbnail;
+
+            // Fetch metadata if missing
+            if (!title) {
+                try {
+                    const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+                    const data = await res.json();
+                    if (data.title) title = data.title;
+                    if (data.thumbnail_url) thumbnail = data.thumbnail_url;
+                } catch (e) {
+                    console.error("Failed to fetch metadata", e);
+                }
+            }
+
             updatePlayer({
                 videoId,
                 isPlaying: true,
-                timestamp: 0
+                timestamp: 0,
+                title: title || 'Video không tên',
+                thumbnail: thumbnail || `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+                addedBy: metadata?.addedBy || 'Host'
             });
             return true;
         }
         return false;
-    }, [updatePlayer]);
+    }, [updatePlayer, saveCurrentToHistory]);
 
     const addToQueue = useCallback(async (url: string, addedBy: string) => {
         const videoId = extractVideoId(url);
@@ -226,16 +290,23 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
 
     const playNext = useCallback(() => {
         if (queue.length === 0) return;
+
+        // Save current to history before switching
+        saveCurrentToHistory();
+
         const nextItem = queue[0]; // Assuming queue is sorted
 
         updatePlayer({
             videoId: nextItem.videoId,
             isPlaying: true,
-            timestamp: 0
+            timestamp: 0,
+            title: nextItem.title,
+            thumbnail: nextItem.thumbnail,
+            addedBy: nextItem.addedBy
         });
 
         removeFromQueue(nextItem.id);
-    }, [id, queue, updatePlayer, removeFromQueue]);
+    }, [id, queue, updatePlayer, removeFromQueue, saveCurrentToHistory]);
 
     const moveItem = useCallback((itemId: string, direction: 'up' | 'down') => {
         const index = queue.findIndex(i => i.id === itemId);
@@ -278,6 +349,7 @@ export function useRoom(roomId: string, paramsId: Promise<{ id: string }> | stri
         playNext,
         moveItem,
         queue,
+        history,
         isRemoteUpdate
     };
 }

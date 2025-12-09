@@ -15,6 +15,30 @@ export interface PlayerState {
     timestamp: number;
     /** The server timestamp when the state was last updated. */
     updatedAt: number;
+    /** The title of the current video. */
+    title?: string;
+    /** The thumbnail URL of the current video. */
+    thumbnail?: string;
+    /** The ID of the user who added the video. */
+    addedBy?: string;
+}
+
+/**
+ * Represents an item in the history.
+ */
+export interface HistoryItem {
+    /** The unique ID of the history item. */
+    id: string;
+    /** The YouTube video ID. */
+    videoId: string;
+    /** The title of the video. */
+    title: string;
+    /** The URL of the video thumbnail. */
+    thumbnail: string;
+    /** The ID of the user who added the video. */
+    addedBy: string;
+    /** The server timestamp when the video was finished/skipped. */
+    playedAt: number;
 }
 
 /**
@@ -104,6 +128,15 @@ export const roomService = {
     getQueueRef: (roomId: string) => {
         if (!database) return null;
         return ref(database, `rooms/${roomId}/queue`);
+    },
+    /**
+     * Gets the reference to the history for a specific room.
+     * @param roomId - The unique room ID.
+     * @returns The DatabaseReference for the history, or null.
+     */
+    getHistoryRef: (roomId: string) => {
+        if (!database) return null;
+        return ref(database, `rooms/${roomId}/history`);
     },
     /**
      * Gets the reference to the messages for a specific room.
@@ -272,6 +305,19 @@ export const roomService = {
             updates[item.id] = item;
         });
         return set(queueRef, updates);
+    },
+
+    /**
+     * Adds an item to the history.
+     * @param roomId - The unique room ID.
+     * @param item - The history item to add (excluding ID).
+     * @returns A promise that resolves when the item is added.
+     */
+    addToHistory: (roomId: string, item: Omit<HistoryItem, 'id'>) => {
+        if (!database) return;
+        const historyRef = roomService.getHistoryRef(roomId);
+        if (!historyRef) return;
+        return push(historyRef, item);
     },
 
     // Participant Logic
