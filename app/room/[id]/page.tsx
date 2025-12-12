@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown, Search, Loader2, History } from 'lucide-react';
+import { LogOut, Play, Link as LinkIcon, AlertTriangle, Info, Users, User, X, ListMusic, Plus, Trash2, ChevronUp, ChevronDown, Search, Loader2, History, Monitor } from 'lucide-react';
 import ChatPanel from '@/app/components/ChatPanel';
 import MobileNav from '@/app/components/MobileNav';
+import FocusPanel from '@/app/components/FocusPanel';
 import { useRoom } from '@/hooks/useRoom';
 import { usePresence } from '@/hooks/usePresence';
 import { searchYouTube, YouTubeVideo } from '@/lib/youtube';
@@ -66,6 +67,9 @@ export default function Room({ params }: RoomProps) {
   // Responsive & Mobile State
   const [activeTab, setActiveTab] = useState<'music' | 'chat'>('music');
   const [isMobile, setIsMobile] = useState(false);
+
+  // Focus Mode State
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Local Player Refs
   const playerRef = useRef<any>(null);
@@ -249,7 +253,12 @@ export default function Room({ params }: RoomProps) {
   // --- Panels Content ---
 
   const musicPanelContent = (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+        {/* Focus Mode Overlay */}
+        {isFocusMode && !isMobile && (
+            <FocusPanel onClose={() => setIsFocusMode(false)} />
+        )}
+
         {/* Header */}
         <div className="h-16 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 bg-gray-900 sticky top-0 z-20 shadow-sm">
             <div className="flex items-center gap-3">
@@ -265,6 +274,16 @@ export default function Room({ params }: RoomProps) {
                 )}
             </div>
             <div className="flex items-center gap-2 md:gap-3">
+                 {/* Focus Mode Toggle */}
+                 <button
+                    onClick={() => setIsFocusMode(!isFocusMode)}
+                    className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700 hidden md:flex"
+                    title="Chế độ tập trung"
+                >
+                    <Monitor size={16} />
+                    <span className="hidden lg:inline">Focus Mode</span>
+                </button>
+
                 <button
                     onClick={() => setShowParticipants(true)}
                     className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700"
@@ -340,6 +359,7 @@ export default function Room({ params }: RoomProps) {
                 )}
 
                 {/* Video Player */}
+                {/* Important: We keep the player in the DOM but potentially hidden by the Focus Overlay */}
                 <div className="relative group">
                     <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                     <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
