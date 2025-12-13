@@ -5,8 +5,14 @@
    ▲ Next.js 14.1.0
    - Local:        http://localhost:3000
 
- ✓ Ready in 1790ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 1971ms
  ○ Compiling /room/[id] ...
- ✓ Compiled /room/[id] in 7.4s (681 modules)
- ✓ Compiled in 557ms (311 modules)
+ ✓ Compiled /room/[id] in 6.9s (675 modules)
+ ✓ Compiled in 470ms (308 modules)
 Firebase config is missing. App will run in demo mode (UI only).
+ ✓ Compiled in 752ms (672 modules)
